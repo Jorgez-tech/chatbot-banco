@@ -1,40 +1,70 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Chatbot Banco</title>
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+    <div id="auth-container" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Chatbot Banco</h1>
+            </div>
 
-<h2>Login</h2>
+            <div class="auth-tabs">
+                <button id="tab-login" class="auth-tab active" onclick="switchTab('login')">Iniciar sesion</button>
+                <button id="tab-register" class="auth-tab" onclick="switchTab('register')">Registrarse</button>
+            </div>
 
-<input id="rut" placeholder="RUT">
-<input id="pass" type="password" placeholder="Password">
-<button onclick="login()">Ingresar</button>
+            <div id="login-form" class="auth-form active">
+                <input id="login-rut" class="auth-input rut-input" type="text" placeholder="RUT (ej: 11.111.111-1)">
+                <input id="login-password" class="auth-input" type="password" placeholder="Contrasena">
+                <button id="btn-login" class="auth-button" type="button">Ingresar</button>
+                <div id="login-error" class="error-message"></div>
+            </div>
 
-<script>
-function login() {
-    fetch("/api/login", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            rut: document.getElementById("rut").value,
-            password: document.getElementById("pass").value
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.token) {
-            localStorage.setItem("rut", document.getElementById("rut").value);
-            localStorage.setItem("token", data.token);
-            window.location.href = "chat.html";
-        } else {
-            alert(data.message || "Error login");
-        }
-    });
-}
-</script>
+            <div id="register-form" class="auth-form">
+                <input id="register-rut" class="auth-input rut-input" type="text" placeholder="RUT (ej: 11.111.111-1)">
+                <input id="register-name" class="auth-input" type="text" placeholder="Nombre completo">
+                <input id="register-email" class="auth-input" type="email" placeholder="Email (opcional)">
+                <input id="register-phone" class="auth-input" type="text" placeholder="Telefono (opcional)">
+                <input id="register-password" class="auth-input" type="password" placeholder="Contrasena">
 
+                <div class="password-requirements">
+                    <div id="req-length" class="requirement invalid">Minimo 8 caracteres</div>
+                    <div id="req-number" class="requirement invalid">Al menos 1 numero</div>
+                    <div id="req-uppercase" class="requirement invalid">Al menos 1 mayuscula</div>
+                </div>
+
+                <button id="btn-register" class="auth-button" type="button">Crear cuenta</button>
+                <div id="register-error" class="error-message"></div>
+            </div>
+
+            <p class="auth-footer">Demo de integracion bancaria</p>
+        </div>
+    </div>
+
+    <div id="chat-container" class="chat-container" style="display: none;">
+        <div class="chat-header">
+            <div class="header-title">Asistente Banco</div>
+            <button id="btn-logout" class="logout-btn" type="button">Salir</button>
+        </div>
+
+        <div class="controls">
+            <button id="btn-products" class="control-btn" type="button">Ver productos</button>
+            <button id="btn-reset" class="control-btn secondary" type="button">Reiniciar datos</button>
+        </div>
+
+        <div id="chat-messages" class="chat-messages"></div>
+
+        <div class="chat-input">
+            <input id="user-input" type="text" placeholder="Escribe tu mensaje...">
+            <button id="send-btn" class="send-btn" type="button">Enviar</button>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
 </body>
 </html>
