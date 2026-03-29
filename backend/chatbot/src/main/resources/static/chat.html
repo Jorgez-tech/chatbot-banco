@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+</head>
+<body>
+
+<h2>Chatbot Banco</h2>
+
+<button onclick="verProductos()">Ver productos</button>
+
+<div id="chat"></div>
+
+<input id="msg" placeholder="Escribe...">
+<button onclick="enviar()">Enviar</button>
+
+<script>
+function enviar() {
+    let mensaje = document.getElementById("msg").value;
+
+    fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            rut_cliente: localStorage.getItem("rut"),
+            mensaje: mensaje
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("chat").innerHTML +=
+            "<p><b>Tu:</b> " + mensaje + "</p>" +
+            "<p><b>Bot:</b> " + data.respuesta + "</p>";
+    });
+}
+
+function verProductos() {
+    fetch("/api/products")
+    .then(res => res.json())
+    .then(products => {
+        let out = "";
+        products.forEach(p => {
+            out += "<p><b>" + p.id + "</b>: " + p.name + " - " + p.description + "</p>";
+        });
+        document.getElementById("chat").innerHTML += out;
+    });
+}
+</script>
+
+</body>
+</html>
