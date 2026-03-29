@@ -30,16 +30,6 @@ public class ChatController {
         return ResponseEntity.ok(chatbotService.getFaqs());
     }
 
-    @PostMapping("/auth")
-    public ResponseEntity<Map<String, String>> auth(@RequestBody Map<String, String> body) {
-        String token = chatbotService.authenticate(body.get("rut"), body.get("code"));
-        if (token == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Credenciales inválidas"));
-        }
-        return ResponseEntity.ok(Map.of("message", "Autenticación exitosa", "token", token));
-    }
-
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody RegisterRequest request) {
         if (request.getRut() == null || request.getRut().trim().isEmpty()) {
@@ -117,11 +107,11 @@ public class ChatController {
     }
 
     @GetMapping("/sale/{saleId}")
-    public ResponseEntity<?> sale(@PathVariable String saleId) {
-        Sale sale = chatbotService.getSale(saleId);
+    public ResponseEntity<?> sale(@PathVariable String saleId, @RequestParam String rut) {
+        Sale sale = chatbotService.getSaleForRut(saleId, rut);
         if (sale == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Venta no encontrada"));
+                    .body(Map.of("message", "Venta no encontrada para el RUT indicado"));
         }
         return ResponseEntity.ok(sale);
     }
@@ -135,29 +125,6 @@ public class ChatController {
     public ResponseEntity<Map<String, String>> reset() {
         chatbotService.resetData();
         return ResponseEntity.ok(Map.of("message", "Datos reiniciados"));
-    }
-
-    @GetMapping("/debug/users")
-    public ResponseEntity<?> debugUsers() {
-        return ResponseEntity.ok(Map.of(
-                "total_usuarios", chatbotService.getAllUsers().size(),
-                "usuarios", chatbotService.getAllUsers().stream().map(u -> Map.of(
-                        "rut", u.getRut(),
-                        "name", u.getName(),
-                        "email", u.getEmail() != null ? u.getEmail() : "N/A",
-                        "phone", u.getPhone() != null ? u.getPhone() : "N/A"
-                )).toList()
-        ));
-    }
-
-    @DeleteMapping("/debug/users/{rut}")
-    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String rut) {
-        boolean deleted = chatbotService.deleteUserByRut(rut);
-        if (!deleted) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Usuario con RUT " + rut + " no encontrado"));
-        }
-        return ResponseEntity.ok(Map.of("message", "Usuario con RUT " + rut + " eliminado exitosamente"));
     }
 
     @GetMapping("/health")
