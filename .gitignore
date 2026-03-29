@@ -1,3 +1,16 @@
 .idea/
+.vscode/
 .DS_Store
 Thumbs.db
+
+# Java/Spring build output
+**/target/
+**/build/
+
+# Runtime/temp files
+*.log
+*.tmp
+
+# Environment-local values
+.env
+.env.*
