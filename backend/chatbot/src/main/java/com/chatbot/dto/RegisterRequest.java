@@ -46,4 +46,29 @@ public class RegisterRequest {
     public void setPhone(String phone) {
         this.phone = phone;
     }
+
+    public boolean isPasswordValid() {
+        if (password == null || password.length() < 8) {
+            return false;
+        }
+        boolean hasNumber = password.matches(".*\\d.*");
+        boolean hasUpperCase = password.matches(".*[A-Z].*");
+        return hasNumber && hasUpperCase;
+    }
+
+    public String getPasswordErrorMessage() {
+        if (password == null || password.isEmpty()) {
+            return "La contraseña es requerida";
+        }
+        if (password.length() < 8) {
+            return "La contraseña debe tener mínimo 8 caracteres";
+        }
+        if (!password.matches(".*\\d.*")) {
+            return "La contraseña debe contener al menos 1 número";
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            return "La contraseña debe contener al menos 1 mayúscula";
+        }
+        return null;
+    }
 }

@@ -30,11 +30,26 @@ public class ChatController {
         return ResponseEntity.ok(chatbotService.getFaqs());
     }
 
+    @PostMapping("/auth")
+    public ResponseEntity<Map<String, String>> auth(@RequestBody Map<String, String> body) {
+        String token = chatbotService.authenticate(body.get("rut"), body.get("code"));
+        if (token == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Credenciales inválidas"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Autenticación exitosa", "token", token));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody RegisterRequest request) {
-        if (request.getRut() == null || request.getRut().trim().isEmpty() || request.getPassword() == null) {
+        if (request.getRut() == null || request.getRut().trim().isEmpty()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("message", "RUT y contraseña son requeridos"));
+                    .body(Map.of("message", "RUT es requerido"));
+        }
+
+        if (!request.isPasswordValid()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", request.getPasswordErrorMessage()));
         }
 
         String message = chatbotService.registerUser(
@@ -101,6 +116,16 @@ public class ChatController {
         return ResponseEntity.ok(Map.of("message", "Firma digital aplicada"));
     }
 
+    @GetMapping("/sale/{saleId}")
+    public ResponseEntity<?> sale(@PathVariable String saleId) {
+        Sale sale = chatbotService.getSale(saleId);
+        if (sale == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Venta no encontrada"));
+        }
+        return ResponseEntity.ok(sale);
+    }
+
     @GetMapping("/sales")
     public ResponseEntity<List<Sale>> sales(@RequestParam(required = false) String rut) {
         return ResponseEntity.ok(chatbotService.listSalesByRut(rut));
@@ -110,6 +135,29 @@ public class ChatController {
     public ResponseEntity<Map<String, String>> reset() {
         chatbotService.resetData();
         return ResponseEntity.ok(Map.of("message", "Datos reiniciados"));
+    }
+
+    @GetMapping("/debug/users")
+    public ResponseEntity<?> debugUsers() {
+        return ResponseEntity.ok(Map.of(
+                "total_usuarios", chatbotService.getAllUsers().size(),
+                "usuarios", chatbotService.getAllUsers().stream().map(u -> Map.of(
+                        "rut", u.getRut(),
+                        "name", u.getName(),
+                        "email", u.getEmail() != null ? u.getEmail() : "N/A",
+                        "phone", u.getPhone() != null ? u.getPhone() : "N/A"
+                )).toList()
+        ));
+    }
+
+    @DeleteMapping("/debug/users/{rut}")
+    public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String rut) {
+        boolean deleted = chatbotService.deleteUserByRut(rut);
+        if (!deleted) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Usuario con RUT " + rut + " no encontrado"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Usuario con RUT " + rut + " eliminado exitosamente"));
     }
 
     @GetMapping("/health")

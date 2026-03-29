@@ -70,6 +70,18 @@ public class ChatbotService {
         return faqs;
     }
 
+    public String authenticate(String rut, String code) {
+        if (rut == null || code == null) {
+            return null;
+        }
+        if (userRepository.existsById(rut) && "1234".equals(code)) {
+            String token = UUID.randomUUID().toString();
+            sessions.put(token, rut);
+            return token;
+        }
+        return null;
+    }
+
     public String registerUser(String rut, String password, String name, String email, String phone) {
         if (userRepository.existsById(rut)) {
             return "El usuario con RUT " + rut + " ya existe.";
@@ -146,6 +158,22 @@ public class ChatbotService {
             return saleRepository.findAll();
         }
         return saleRepository.findByRut(rut);
+    }
+
+    public Sale getSale(String saleId) {
+        return saleRepository.findById(saleId).orElse(null);
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public boolean deleteUserByRut(String rut) {
+        if (!userRepository.existsById(rut)) {
+            return false;
+        }
+        userRepository.deleteById(rut);
+        return true;
     }
 
     public String processMessage(String mensaje, String rut) {
