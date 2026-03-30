@@ -1,5 +1,9 @@
 Flujo sugerido:
 
+Abre terminal en la carpeta backend/chatbot
+
+Ejecuta:
+.\mvnw.cmd spring-boot:run
 Abre http://localhost:8081/
 Prueba login con usuario demo:
 RUT: 11111111-1
