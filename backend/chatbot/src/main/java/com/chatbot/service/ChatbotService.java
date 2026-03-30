@@ -41,7 +41,37 @@ public class ChatbotService {
     public void init() {
         if (userRepository.count() == 0) {
             resetData();
+            return;
         }
+
+        ensureSeedData();
+    }
+
+    private void ensureSeedData() {
+        upsertSeedUser("11111111-1", "Juan Perez", "juan@example.com", "+56912345678", "Password123");
+        upsertSeedUser("11222333-4", "Maria Gomez", "maria@example.com", "+56987654321", "Password123");
+
+        upsertSeedProduct("prod-1", "Crédito de Consumo", "Préstamo personal a 12 meses a tasa fija");
+        upsertSeedProduct("prod-2", "Cuenta Vista", "Cuenta corriente para manejo diario");
+        upsertSeedProduct("prod-3", "Tarjeta de Crédito", "Tarjeta internacional con cupo preaprobado");
+    }
+
+    private void upsertSeedUser(String rut, String name, String email, String phone, String rawPassword) {
+        User user = userRepository.findById(rut).orElse(new User());
+        user.setRut(rut);
+        user.setName(name);
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        userRepository.save(user);
+    }
+
+    private void upsertSeedProduct(String id, String name, String description) {
+        Product product = productRepository.findById(id).orElse(new Product());
+        product.setId(id);
+        product.setName(name);
+        product.setDescription(description);
+        productRepository.save(product);
     }
 
     public void resetData() {
@@ -69,10 +99,34 @@ public class ChatbotService {
         faqs.add(Map.of("pregunta", "¿Cómo firmo contrato?", "respuesta", "Usa /api/sale/sign al finalizar."));
         return faqs;
     }
+    private String normalizeRut(String rut) {
+        if (rut == null || rut.isBlank()) {
+            return null;
+        }
+        String compact = rut.trim()
+                .replace(".", "")
+                .replace(" ", "")
+                .replace("-", "")
+                .toUpperCase()
+                .replaceAll("[^0-9K]", "");
+
+        if (compact.length() < 2) {
+            return null;
+        }
+
+        String body = compact.substring(0, compact.length() - 1);
+        String verifier = compact.substring(compact.length() - 1);
+        return body + "-" + verifier;
+    }
 
     public String registerUser(String rut, String password, String name, String email, String phone) {
-        if (userRepository.existsById(rut)) {
-            return "El usuario con RUT " + rut + " ya existe.";
+        String normalizedRut = normalizeRut(rut);
+        if (normalizedRut == null) {
+            return "RUT inválido.";
+        }
+
+        if (userRepository.existsById(normalizedRut)) {
+            return "El usuario con RUT " + normalizedRut + " ya existe.";
         }
         if (password == null || password.length() < 8) {
             return "La contraseña debe tener mínimo 8 caracteres.";
@@ -84,7 +138,7 @@ public class ChatbotService {
             return "La contraseña debe contener al menos 1 mayúscula.";
         }
 
-        User user = new User(rut, name == null || name.isBlank() ? "Cliente" : name, email, phone);
+        User user = new User(normalizedRut, name == null || name.isBlank() ? "Cliente" : name, email, phone);
         user.setPassword(passwordEncoder.encode(password));
         userRepository.save(user);
         return "Usuario registrado exitosamente.";
@@ -94,16 +148,22 @@ public class ChatbotService {
         if (rut == null || password == null) {
             return null;
         }
-        Optional<User> userOpt = userRepository.findById(rut);
+        String normalizedRut = normalizeRut(rut);
+        if (normalizedRut == null) {
+            return null;
+        }
+
+        Optional<User> userOpt = userRepository.findById(normalizedRut);
         if (userOpt.isEmpty()) {
             return null;
         }
         if (passwordEncoder.matches(password, userOpt.get().getPassword())) {
             String token = UUID.randomUUID().toString();
-            sessions.put(token, rut);
+            sessions.put(token, normalizedRut);
             return token;
         }
         return null;
+
     }
 
     public List<Product> listProducts() {
@@ -114,11 +174,16 @@ public class ChatbotService {
         if (rut == null || productId == null) {
             return null;
         }
-        if (!userRepository.existsById(rut) || !productRepository.existsById(productId)) {
+        String normalizedRut = normalizeRut(rut);
+        if (normalizedRut == null) {
+            return null;
+        }
+
+        if (!userRepository.existsById(normalizedRut) || !productRepository.existsById(productId)) {
             return null;
         }
         String saleId = UUID.randomUUID().toString();
-        Sale sale = new Sale(saleId, productId, rut, "PENDING", null);
+        Sale sale = new Sale(saleId, productId, normalizedRut, "PENDING", null);
         saleRepository.save(sale);
         return saleId;
     }
@@ -145,15 +210,23 @@ public class ChatbotService {
         if (rut == null || rut.isBlank()) {
             return saleRepository.findAll();
         }
-        return saleRepository.findByRut(rut);
+        String normalizedRut = normalizeRut(rut);
+        if (normalizedRut == null) {
+            return List.of();
+        }
+        return saleRepository.findByRut(normalizedRut);
     }
 
     public Sale getSaleForRut(String saleId, String rut) {
         if (saleId == null || rut == null || rut.isBlank()) {
             return null;
         }
+        String normalizedRut = normalizeRut(rut);
+        if (normalizedRut == null) {
+            return null;
+        }
         Sale sale = saleRepository.findById(saleId).orElse(null);
-        if (sale == null || !rut.equals(sale.getRut())) {
+        if (sale == null || !normalizedRut.equals(sale.getRut())) {
             return null;
         }
         return sale;

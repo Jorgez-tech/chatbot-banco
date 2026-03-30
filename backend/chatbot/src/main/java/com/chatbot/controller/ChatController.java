@@ -54,7 +54,7 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", message));
         }
 
-        if (message.contains("mínimo") || message.contains("número") || message.contains("mayúscula")) {
+        if (message.contains("mínimo") || message.contains("número") || message.contains("mayúscula") || message.contains("inválido")) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", message));
         }
 
