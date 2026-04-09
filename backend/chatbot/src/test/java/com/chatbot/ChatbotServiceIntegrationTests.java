@@ -40,13 +40,18 @@ class ChatbotServiceIntegrationTests {
         if (!userRepository.existsById(SEEDED_RUT_CANONICAL)) {
             chatbotService.registerUser(SEEDED_RUT_CANONICAL, SEEDED_PASSWORD, "Usuario Seed", "seed@example.com", "+56911111111");
         }
-        if (userRepository.existsById(TEST_RUT_CANONICAL)) {
-            userRepository.deleteById(TEST_RUT_CANONICAL);
-        }
+        cleanupTestUserData();
     }
 
     @AfterEach
     void cleanup() {
+        cleanupTestUserData();
+    }
+
+    private void cleanupTestUserData() {
+        saleRepository.findByRut(TEST_RUT_CANONICAL)
+                .forEach(sale -> saleRepository.deleteById(sale.getId()));
+
         if (userRepository.existsById(TEST_RUT_CANONICAL)) {
             userRepository.deleteById(TEST_RUT_CANONICAL);
         }
@@ -86,6 +91,11 @@ class ChatbotServiceIntegrationTests {
     void chatFlowContractsAndSignsEachSeedProduct() {
         String[] productIds = {"prod-1", "prod-2", "prod-3"};
 
+        long completedBefore = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
+                .stream()
+                .filter(sale -> "COMPLETED".equals(sale.getStatus()))
+                .count();
+
         for (String productId : productIds) {
             String selectResponse = chatbotService.processMessage(productId, SEEDED_RUT_CANONICAL);
             assertTrue(selectResponse.toLowerCase().contains(productId));
@@ -98,11 +108,11 @@ class ChatbotServiceIntegrationTests {
             assertTrue(signResponse.contains("estado: COMPLETED"));
         }
 
-        long completedSales = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
+        long completedAfter = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
                 .stream()
                 .filter(sale -> "COMPLETED".equals(sale.getStatus()))
                 .count();
 
-        assertEquals(3, completedSales);
+        assertEquals(completedBefore + 3, completedAfter);
     }
 }
