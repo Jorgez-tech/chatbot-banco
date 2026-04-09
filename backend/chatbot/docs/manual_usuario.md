@@ -1,77 +1,60 @@
 # Manual de Usuario - Chatbot Banco
 
 ## 1. Objetivo
-Este manual explica como usar la aplicacion web del Chatbot Banco para registrarse, iniciar sesion, conversar con el bot y ejecutar flujo basico de ventas.
+Guiar el uso de la aplicacion web para:
+- autenticarse,
+- revisar productos,
+- contratar un producto,
+- firmar digitalmente el contrato.
 
 ## 2. Requisitos
-- MySQL ejecutandose localmente.
-- Base de datos `chatbot` creada.
-- Backend iniciado en `http://localhost:8081`.
+- MySQL activo en local.
+- Base `chatbot` creada.
+- Backend corriendo en `http://localhost:8081`.
 
-## 3. Inicio Rapido
-1. Ir a la carpeta raiz del backend: `backend/chatbot`.
-2. Ejecutar en Windows:
+## 3. Inicio rapido (Windows)
+Desde la raiz del repositorio:
+
 ```powershell
+Set-Location .\backend\chatbot
 .\mvnw.cmd spring-boot:run
 ```
-3. Abrir navegador en:
-`http://localhost:8081`
 
-## 4. Acceso con Usuario Seed
-Si la base esta limpia, puedes entrar con:
-- RUT: `11.111.111-1` (tambien funciona `11111111-1` o `111111111`)
-- Contrasena: `Password123`
+Abrir navegador en `http://localhost:8081`.
 
-## 5. Registro de Nuevo Usuario
-1. En la pantalla principal, elegir pestana `Registrarse`.
-2. Completar campos obligatorios:
-- RUT
-- Nombre
-- Contrasena
-3. Regla de contrasena:
-- Minimo 8 caracteres
-- Al menos 1 numero
-- Al menos 1 mayuscula
-4. Presionar `Crear cuenta`.
-5. Luego iniciar sesion desde la pestana `Iniciar sesion`.
+## 4. Usuario demo
+Credenciales semilla:
+- RUT: `11.111.111-1`
+- Clave: `Password123`
 
-## 6. Uso del Chat
-Una vez logueado:
-1. Escribir mensaje en el cuadro inferior.
-2. Presionar `Enviar`.
-3. Consultas sugeridas:
-- `faq`
-- `productos`
-- `contratar`
-- `firmar`
+Tambien funciona el RUT en formatos equivalentes (`11111111-1` o `111111111`).
 
-## 7. Botones de Control
-- `Ver productos`: muestra catalogo disponible.
-- `Reiniciar datos`: restaura datos base del servidor (uso de prueba).
-- `Salir`: cierra sesion de la interfaz actual.
+## 5. Flujo recomendado en pantalla
+1. Inicia sesion.
+2. Pulsa `Ver productos`.
+3. Escribe un ID de producto en el chat (`prod-1`, `prod-2`, `prod-3`).
+4. Pulsa `Contratar producto seleccionado`.
+5. Pulsa `Firmar contrato pendiente` e ingresa tu firma.
+6. Verifica confirmacion con `estado: COMPLETED`.
 
-## 8. Flujo Basico de Venta (API)
-Para pruebas tecnicas con herramientas como Postman:
-1. Iniciar venta: `POST /api/sale/start`
-2. Firmar venta: `POST /api/sale/sign`
-3. Consultar venta: `GET /api/sale/{saleId}?rut=...`
+## 6. Productos disponibles
+- `prod-1` - Credito de Consumo
+- `prod-2` - Cuenta Vista
+- `prod-3` - Tarjeta de Credito
 
-## 9. Problemas Frecuentes
-### 9.1 RUT o contrasena invalidos
-- Verificar formato de RUT correcto.
-- Probar con seed: `11.111.111-1` y `Password123`.
-- Confirmar que la app apunta a la BD correcta (`chatbot`).
+## 7. Botones de control
+- `Ver productos`: lista productos contratables.
+- `Contratar producto seleccionado`: inicia venta del producto activo.
+- `Firmar contrato pendiente`: aplica firma digital al contrato pendiente.
+- `Reiniciar datos`: vuelve al estado base de prueba.
+- `Salir`: cierra sesion local de la interfaz.
 
-### 9.2 Usuario desaparece
-- Revisar que no se haya usado `Reiniciar datos`.
-- Evitar conectarse a una base antigua de otra version.
-- Validar que MySQL este usando el schema `chatbot`.
+## 8. Problemas frecuentes
+### 8.1 No se habilita "Contratar producto seleccionado"
+Primero escribe en el chat un ID valido (`prod-1`, `prod-2`, `prod-3`).
 
-### 9.3 No carga la aplicacion
-- Confirmar backend arriba en puerto `8081`.
-- Revisar consola del backend para errores de conexion a MySQL.
+### 8.2 No se habilita "Firmar contrato pendiente"
+Debes iniciar una venta antes de firmar.
 
-## 10. Recomendaciones de Uso para Entrega
-- Mantener una base limpia al preparar demo.
-- Probar login seed antes de exponer flujo completo.
-- Registrar 1 usuario nuevo y validar login para mostrar persistencia.
+### 8.3 Login invalido
+Revisa RUT y clave. Si es necesario, usa `Reiniciar datos` y prueba el usuario demo.
