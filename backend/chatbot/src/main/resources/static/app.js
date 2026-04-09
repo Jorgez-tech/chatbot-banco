@@ -26,6 +26,7 @@ const buyBtn = document.getElementById('btn-buy');
 const signBtn = document.getElementById('btn-sign');
 const resetBtn = document.getElementById('btn-reset');
 const logoutBtn = document.getElementById('btn-logout');
+const actionsHint = document.getElementById('actions-hint');
 
 // ===== ESTADO GLOBAL =====
 let currentUser = null;
@@ -270,6 +271,30 @@ function syncChatStateFromResponse(responseText) {
 function updateActionButtons() {
   buyBtn.disabled = !selectedProductId;
   signBtn.disabled = !pendingSaleId;
+
+  if (!selectedProductId) {
+    buyBtn.title = 'Primero selecciona un producto escribiendo su ID (prod-1, prod-2 o prod-3).';
+  } else {
+    buyBtn.title = `Listo para contratar ${selectedProductId}.`;
+  }
+
+  if (!pendingSaleId) {
+    signBtn.title = 'Primero inicia una venta para habilitar la firma digital.';
+  } else {
+    signBtn.title = `Contrato pendiente detectado (${pendingSaleId}).`;
+  }
+
+  if (pendingSaleId) {
+    actionsHint.textContent = `Paso 3: firma el contrato pendiente (${pendingSaleId}) con el boton "Firmar contrato pendiente".`;
+    return;
+  }
+
+  if (selectedProductId) {
+    actionsHint.textContent = `Paso 2: producto ${selectedProductId} seleccionado. Ahora presiona "Contratar producto seleccionado".`;
+    return;
+  }
+
+  actionsHint.textContent = 'Paso 1: revisa los productos y selecciona uno (ej: prod-1).';
 }
 
 sendBtn.addEventListener('click', () => {
