@@ -1,103 +1,103 @@
-# Manual de Codigo - Chatbot Banco
+# Manual Tecnico - Chatbot Banco
 
-## 1. Objetivo
-Este documento describe la estructura tecnica del proyecto, flujo de datos y puntos clave para mantener o extender el sistema.
+## 1. Alcance
+Backend academico en Spring Boot para un flujo bancario basico:
+- autenticacion,
+- consulta de productos,
+- inicio de venta,
+- firma digital de contrato,
+- consulta de ventas.
 
-## 2. Estructura del Proyecto
-- Backend Spring Boot: `backend/chatbot`
-- Codigo fuente Java: `src/main/java/com/chatbot`
-- Recursos y estaticos: `src/main/resources`
-- Pruebas: `src/test/java/com/chatbot`
+Prioridad del proyecto: simple, estable y facil de revisar.
 
-Paquetes principales:
-- `controller`: expone endpoints REST.
-- `service`: contiene logica de negocio.
-- `model`: entidades JPA (`User`, `Product`, `Sale`).
-- `repository`: acceso a datos con Spring Data JPA.
-- `dto`: contratos de entrada para login y registro.
+## 2. Estructura del backend
+Base: `backend/chatbot`
 
-## 3. Stack Tecnologico
+- `src/main/java/com/chatbot/controller/ChatController.java`
+  - API REST principal.
+- `src/main/java/com/chatbot/service/ChatbotService.java`
+  - Logica de negocio del chatbot y ventas.
+- `src/main/java/com/chatbot/model/*`
+  - Entidades JPA: `User`, `Product`, `Sale`.
+- `src/main/java/com/chatbot/repository/*`
+  - Repositorios JPA.
+- `src/main/resources/schema.sql`
+  - Esquema SQL.
+- `src/main/resources/static/*`
+  - Frontend estatico (HTML/CSS/JS).
+
+## 3. Stack
 - Java 21
 - Spring Boot 4.0.4
 - Spring Data JPA
 - MySQL
-- Maven Wrapper (`mvnw` / `mvnw.cmd`)
-- Frontend estatico (HTML, CSS, JavaScript)
+- Frontend estatico (sin frameworks)
 
-## 4. Configuracion
+## 4. Configuracion local
 Archivo: `src/main/resources/application.properties`
 
-Valores actuales de desarrollo local:
-- Puerto app: `8081`
-- BD: `jdbc:mysql://localhost:3306/chatbot`
-- Usuario: `root`
-- Password: `mysql`
+- Puerto: `8081`
+- Base: `chatbot`
+- Usuario local por defecto: `root`
+- Password local por defecto: `mysql`
 
 Notas:
-- `spring.sql.init.mode=always` ejecuta `schema.sql` al iniciar.
-- `spring.jpa.hibernate.ddl-auto=none` evita autogeneracion de esquema por Hibernate.
+- `spring.sql.init.mode=always` inicializa esquema.
+- `spring.jpa.hibernate.ddl-auto=none` evita generar esquema automatico.
 
-## 5. Modelo de Datos
-Definido en `src/main/resources/schema.sql`:
-- `users(rut PK, name, email, phone, password)`
-- `products(id PK, name, description)`
-- `sales(id PK, product_id FK, rut FK, status, signature, created_at)`
+## 5. Modelo de datos
+Definido en `schema.sql`:
 
-## 6. Flujo Principal
-1. Registro: `POST /api/register`
-2. Login: `POST /api/login`
-3. Chat: `POST /api/chat`
-4. Productos: `GET /api/products`
-5. Ventas:
+- `users(rut, name, email, phone, password)`
+- `products(id, name, description)`
+- `sales(id, product_id, rut, status, signature, created_at)`
+
+Relacion clave:
+- `sales.product_id -> products.id`
+- `sales.rut -> users.rut`
+
+## 6. Endpoints principales
+- `GET /api/faq`
+- `POST /api/register`
+- `POST /api/login`
+- `POST /api/chat`
+- `GET /api/products`
 - `POST /api/sale/start`
 - `POST /api/sale/sign`
 - `GET /api/sale/{saleId}`
 - `GET /api/sales`
+- `POST /api/reset`
+- `GET /api/health`
 
-## 7. Normalizacion de RUT
-La logica en servicio normaliza RUT al formato canonico `cuerpo-dv`:
-- Quita puntos, espacios y guion.
-- Conserva digitos y `K`.
-- Reconstruye como `digits-dv`.
+## 7. Flujo de venta y firma
+1. Cliente autenticado.
+2. Selecciona producto (`prod-1`, `prod-2`, `prod-3`).
+3. Inicia venta con `rut + productId`.
+4. Sistema genera `saleId` con estado `PENDING`.
+5. Cliente firma digitalmente (`saleId + signature`).
+6. Estado final: `COMPLETED`.
 
-Esto permite autenticar con variantes como:
-- `11111111-1`
-- `11.111.111-1`
-- `111111111`
+## 8. Productos semilla minimos
+- `prod-1`: Credito de Consumo
+- `prod-2`: Cuenta Vista
+- `prod-3`: Tarjeta de Credito
 
-## 8. Seed de Datos
-Al iniciar:
-- Si no hay usuarios, se ejecuta reinicializacion completa (`resetData`).
-- Si ya existe data, se asegura presencia de usuarios y productos seed sin borrar registros existentes.
-
-Credenciales seed:
-- RUT: `11111111-1`
-- Password: `Password123`
+El servicio asegura que existan para cumplir el requisito academico de minimo 3 productos contratables.
 
 ## 9. Pruebas
-Pruebas en `src/test/java/com/chatbot`:
-- `ChatbotApplicationTests`: carga de contexto Spring.
-- `ChatbotServiceIntegrationTests`:
-  - Login con formato de RUT alternativo.
-  - Persistencia de usuario registrado tras reinicio simulado del servicio.
+Ubicacion: `src/test/java/com/chatbot`
 
-Ejecutar pruebas:
-```bash
-./mvnw test
-```
-En Windows:
+- `ChatbotApplicationTests`: carga de contexto.
+- `ChatbotServiceIntegrationTests`: flujo de negocio, normalizacion de RUT y contratacion/firma por 3 productos.
+- `ChatControllerIntegrationTests`: contrato REST para inicio y firma de venta.
+
+Ejecucion en Windows:
+
 ```powershell
 .\mvnw.cmd test
 ```
 
-## 10. Convenciones para Cambios
-- Mantener cambios minimos y enfocados.
-- No romper contratos actuales de endpoints.
-- Agregar prueba automatica por cada bug corregido en negocio.
-- Validar con `mvnw test` antes de entregar.
-
-## 11. Deuda Tecnica Recomendada
-- Implementar autenticacion/autorizacion real para endpoints de negocio.
-- Restringir CORS en ambientes no locales.
-- Mover credenciales de BD a variables de entorno.
-- Evitar exponer endpoint destructivo de reset en produccion.
+## 10. Criterios para cambios
+- Cambios pequenos y enfocados.
+- No romper contratos API ni frontend.
+- Toda correccion funcional debe incluir prueba minima.

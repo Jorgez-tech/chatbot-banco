@@ -22,12 +22,17 @@ const chatMessages = document.getElementById('chat-messages');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
 const productsBtn = document.getElementById('btn-products');
+const buyBtn = document.getElementById('btn-buy');
+const signBtn = document.getElementById('btn-sign');
 const resetBtn = document.getElementById('btn-reset');
 const logoutBtn = document.getElementById('btn-logout');
+const actionsHint = document.getElementById('actions-hint');
 
 // ===== ESTADO GLOBAL =====
 let currentUser = null;
 let currentToken = null;
+let selectedProductId = null;
+let pendingSaleId = null;
 
 // ===== FORMATEO DE RUT =====
 function formatRUT(value) {
@@ -200,6 +205,8 @@ btnRegister.addEventListener('click', async () => {
 logoutBtn.addEventListener('click', () => {
   currentUser = null;
   currentToken = null;
+  selectedProductId = null;
+  pendingSaleId = null;
   chatContainer.style.display = 'none';
   authContainer.style.display = 'block';
   loginRut.value = '';
@@ -212,6 +219,7 @@ logoutBtn.addEventListener('click', () => {
 function showChatUI() {
   authContainer.style.display = 'none';
   chatContainer.style.display = 'flex';
+  updateActionButtons();
 }
 
 function appendMessage(sender, text) {
@@ -232,9 +240,61 @@ async function sendMessageText(text) {
     });
     const data = await response.json();
     appendMessage('bot', data.respuesta);
+    syncChatStateFromResponse(data.respuesta);
   } catch (error) {
     appendMessage('bot', 'Error de conexión con el servidor.');
   }
+}
+
+function syncChatStateFromResponse(responseText) {
+  if (!responseText) {
+    return;
+  }
+
+  const productMatch = responseText.match(/\bprod-[1-9]\b/i);
+  if (productMatch) {
+    selectedProductId = productMatch[0].toLowerCase();
+  }
+
+  const saleMatch = responseText.match(/saleId:\s*([a-zA-Z0-9\-]+)/i);
+  if (saleMatch) {
+    pendingSaleId = saleMatch[1];
+  }
+
+  if (responseText.includes('estado: COMPLETED')) {
+    pendingSaleId = null;
+  }
+
+  updateActionButtons();
+}
+
+function updateActionButtons() {
+  buyBtn.disabled = !selectedProductId;
+  signBtn.disabled = !pendingSaleId;
+
+  if (!selectedProductId) {
+    buyBtn.title = 'Primero selecciona un producto escribiendo su ID (prod-1, prod-2 o prod-3).';
+  } else {
+    buyBtn.title = `Listo para contratar ${selectedProductId}.`;
+  }
+
+  if (!pendingSaleId) {
+    signBtn.title = 'Primero inicia una venta para habilitar la firma digital.';
+  } else {
+    signBtn.title = `Contrato pendiente detectado (${pendingSaleId}).`;
+  }
+
+  if (pendingSaleId) {
+    actionsHint.textContent = `Paso 3: firma el contrato pendiente (${pendingSaleId}) con el boton "Firmar contrato pendiente".`;
+    return;
+  }
+
+  if (selectedProductId) {
+    actionsHint.textContent = `Paso 2: producto ${selectedProductId} seleccionado. Ahora presiona "Contratar producto seleccionado".`;
+    return;
+  }
+
+  actionsHint.textContent = 'Paso 1: revisa los productos y selecciona uno (ej: prod-1).';
 }
 
 sendBtn.addEventListener('click', () => {
@@ -258,15 +318,40 @@ productsBtn.addEventListener('click', async () => {
       let out = 'Productos disponibles:\n';
       products.forEach(p => out += `${p.id} - ${p.name}: ${p.description}\n`);
       appendMessage('bot', out);
+      appendMessage('bot', 'Escribe el ID del producto (ej: prod-1) para seleccionarlo y luego usa el botón "Contratar producto seleccionado".');
     }
   } catch (err) {
     appendMessage('bot', 'No se pudo obtener la lista de productos.');
   }
 });
 
+buyBtn.addEventListener('click', () => {
+  if (!selectedProductId) {
+    appendMessage('bot', 'Primero selecciona un producto escribiendo su ID (prod-1, prod-2, prod-3).');
+    return;
+  }
+  sendMessageText(`contratar ${selectedProductId}`);
+});
+
+signBtn.addEventListener('click', () => {
+  if (!pendingSaleId) {
+    appendMessage('bot', 'No hay contrato pendiente por firmar. Primero inicia una contratación.');
+    return;
+  }
+  const signature = window.prompt('Ingresa tu firma digital (ejemplo: Nombre Apellido)');
+  if (!signature || !signature.trim()) {
+    appendMessage('bot', 'Firma cancelada.');
+    return;
+  }
+  sendMessageText(`firmar ${signature.trim()}`);
+});
+
 resetBtn.addEventListener('click', async () => {
   try {
     await fetch('/api/reset', { method: 'POST' });
+    selectedProductId = null;
+    pendingSaleId = null;
+    updateActionButtons();
     appendMessage('bot', 'Datos reiniciados en el servidor.');
   } catch (err) {
     appendMessage('bot', 'No fue posible reiniciar los datos.');
@@ -276,5 +361,6 @@ resetBtn.addEventListener('click', async () => {
 // ===== INICIO =====
 window.onload = () => {
   // La pantalla de login ya está visible
+  updateActionButtons();
 };
 
