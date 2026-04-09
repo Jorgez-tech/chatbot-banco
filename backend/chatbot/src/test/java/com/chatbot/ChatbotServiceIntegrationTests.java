@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -68,5 +71,38 @@ class ChatbotServiceIntegrationTests {
         assertTrue(userRepository.existsById(TEST_RUT_CANONICAL));
         assertNotNull(restartedService.loginUser("22.222.222-2", "Password123"));
         assertNotNull(restartedService.loginUser("222222222", "Password123"));
+    }
+
+    @Test
+    void chatSupportsAtLeastThreeProductsForContracting() {
+        List<String> productIds = chatbotService.listProducts().stream().map(p -> p.getId()).sorted().toList();
+        assertTrue(productIds.contains("prod-1"));
+        assertTrue(productIds.contains("prod-2"));
+        assertTrue(productIds.contains("prod-3"));
+        assertTrue(productIds.size() >= 3);
+    }
+
+    @Test
+    void chatFlowContractsAndSignsEachSeedProduct() {
+        String[] productIds = {"prod-1", "prod-2", "prod-3"};
+
+        for (String productId : productIds) {
+            String selectResponse = chatbotService.processMessage(productId, SEEDED_RUT_CANONICAL);
+            assertTrue(selectResponse.toLowerCase().contains(productId));
+
+            String contractResponse = chatbotService.processMessage("contratar " + productId, SEEDED_RUT_CANONICAL);
+            assertTrue(contractResponse.contains("saleId:"));
+            assertTrue(contractResponse.contains("estado: PENDING"));
+
+            String signResponse = chatbotService.processMessage("firmar Cliente QA", SEEDED_RUT_CANONICAL);
+            assertTrue(signResponse.contains("estado: COMPLETED"));
+        }
+
+        long completedSales = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
+                .stream()
+                .filter(sale -> "COMPLETED".equals(sale.getStatus()))
+                .count();
+
+        assertEquals(3, completedSales);
     }
 }

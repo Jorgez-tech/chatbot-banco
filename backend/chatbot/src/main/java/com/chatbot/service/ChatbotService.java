@@ -23,12 +23,17 @@ import java.util.concurrent.ConcurrentHashMap;
 @Transactional
 public class ChatbotService {
 
+    private static final String PRODUCT_CONSUMO_ID = "prod-1";
+    private static final String PRODUCT_CUENTA_ID = "prod-2";
+    private static final String PRODUCT_TARJETA_ID = "prod-3";
+
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final SaleRepository saleRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
     private final Map<String, String> sessions = new ConcurrentHashMap<>();
+    private final Map<String, ChatState> chatStates = new ConcurrentHashMap<>();
 
     public ChatbotService(UserRepository userRepository, ProductRepository productRepository, SaleRepository saleRepository) {
         this.userRepository = userRepository;
@@ -79,6 +84,7 @@ public class ChatbotService {
         productRepository.deleteAll();
         userRepository.deleteAll();
         sessions.clear();
+        chatStates.clear();
 
         User u1 = new User("11111111-1", "Juan Perez", "juan@example.com", "+56912345678");
         u1.setPassword(passwordEncoder.encode("Password123"));
@@ -86,9 +92,9 @@ public class ChatbotService {
         u2.setPassword(passwordEncoder.encode("Password123"));
         userRepository.saveAll(Arrays.asList(u1, u2));
 
-        Product p1 = new Product("prod-1", "Crédito de Consumo", "Préstamo personal a 12 meses a tasa fija");
-        Product p2 = new Product("prod-2", "Cuenta Vista", "Cuenta corriente para manejo diario");
-        Product p3 = new Product("prod-3", "Tarjeta de Crédito", "Tarjeta internacional con cupo preaprobado");
+        Product p1 = new Product(PRODUCT_CONSUMO_ID, "Crédito de Consumo", "Préstamo personal a 12 meses a tasa fija");
+        Product p2 = new Product(PRODUCT_CUENTA_ID, "Cuenta Vista", "Cuenta corriente para manejo diario");
+        Product p3 = new Product(PRODUCT_TARJETA_ID, "Tarjeta de Crédito", "Tarjeta internacional con cupo preaprobado");
         productRepository.saveAll(Arrays.asList(p1, p2, p3));
     }
 
@@ -233,32 +239,221 @@ public class ChatbotService {
     }
 
     public String processMessage(String mensaje, String rut) {
-        if (mensaje == null) {
-            return "No recibí ningún mensaje.";
+        if (mensaje == null || mensaje.isBlank()) {
+            return "No recibi ningun mensaje. Escribe 'productos' para ver opciones.";
         }
-        String m = mensaje.toLowerCase();
 
-        if (m.contains("hola") || m.contains("buenas")) {
-            return "Hola, puedo ayudarte con FAQ, productos y proceso de venta.";
+        String normalizedRut = normalizeRut(rut);
+        String m = mensaje.trim().toLowerCase();
+
+        if (m.contains("hola") || m.contains("buenas") || m.contains("inicio")) {
+            return "Hola, puedo ayudarte con FAQ, productos y contratacion. Escribe 'productos' para ver los 3 productos disponibles.";
         }
-        if (m.contains("faq")) {
-            return "Puedes consultar FAQ en /api/faq.";
+
+        if (m.contains("faq") || m.contains("preguntas") || m.contains("ayuda")) {
+            return "FAQ rapida:\n"
+                    + "- Productos: credito de consumo, cuenta vista y tarjeta de credito.\n"
+                    + "- Contratacion: escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.\n"
+                    + "- Firma digital: escribe 'firmar <tu nombre>' para cerrar el contrato.";
         }
-        if (m.contains("producto") || m.contains("productos")) {
-            return "Consulta productos en /api/products.";
+
+        if (m.contains("producto") || m.contains("catalogo") || m.contains("ofrecen")) {
+            return formatProductsForChat();
         }
+
+        Product matchedProduct = findProductByQuery(m);
+        if (matchedProduct != null) {
+            rememberSelectedProduct(normalizedRut, matchedProduct.getId());
+            return "Producto seleccionado: " + matchedProduct.getId() + " - " + matchedProduct.getName() + "\n"
+                    + matchedProduct.getDescription() + "\n"
+                    + "Si deseas continuar, escribe 'contratar " + matchedProduct.getId() + "'.";
+        }
+
         if (m.contains("contratar") || m.contains("venta")) {
-            return "Para iniciar una venta usa /api/sale/start con rut y productId.";
+            return handleContractIntent(m, normalizedRut, rut);
         }
-        if (m.contains("firma") || m.contains("firmar")) {
-            return "Para firmar contrato usa /api/sale/sign con saleId y signature.";
+
+        if (m.contains("firma") || m.startsWith("firmar")) {
+            return handleSignIntent(m, normalizedRut, rut);
         }
+
         if (m.contains("saldo")) {
-            if (rut == null || rut.isBlank()) {
-                return "Para consultar saldo primero autentícate y envía tu rut_cliente.";
+            if (normalizedRut == null) {
+                return "Para consultar saldo primero autenticate y envia tu rut_cliente.";
             }
-            return "Validación completada para " + rut + ". Saldo referencial: $1.500.000.";
+            return "Validacion completada para " + normalizedRut + ". Saldo referencial: $1.500.000.";
         }
-        return "No entendí tu consulta. Escribe 'faq', 'productos' o 'contratar'.";
+
+        return "No entendi tu consulta. Escribe 'productos', un id como 'prod-1' o 'contratar prod-1'.";
+    }
+
+    private String handleContractIntent(String message, String normalizedRut, String rawRut) {
+        if (normalizedRut == null || !userRepository.existsById(normalizedRut)) {
+            return "Para contratar un producto primero inicia sesion con un RUT valido.";
+        }
+
+        Product product = extractProductFromMessage(message);
+        if (product == null) {
+            String selectedProductId = getOrCreateChatState(normalizedRut).selectedProductId;
+            if (selectedProductId != null) {
+                product = productRepository.findById(selectedProductId).orElse(null);
+            }
+        }
+
+        if (product == null) {
+            return "Indica el producto a contratar. Ejemplos: 'contratar prod-1', 'contratar prod-2', 'contratar prod-3'.";
+        }
+
+        String saleId = startSale(normalizedRut, product.getId());
+        if (saleId == null) {
+            return "No se pudo iniciar la venta. Verifica que el producto exista e intentalo nuevamente.";
+        }
+
+        ChatState state = getOrCreateChatState(normalizedRut);
+        state.selectedProductId = product.getId();
+        state.pendingSaleId = saleId;
+
+        return "Venta iniciada para " + product.getName() + " (" + product.getId() + ").\n"
+                + "Resumen de contrato:\n"
+                + "- saleId: " + saleId + "\n"
+                + "- rut: " + normalizedRut + "\n"
+                + "- estado: PENDING\n"
+                + "Para firmar digitalmente, escribe: firmar " + (rawRut == null ? "Cliente" : rawRut.trim());
+    }
+
+    private String handleSignIntent(String message, String normalizedRut, String rawRut) {
+        if (normalizedRut == null || !userRepository.existsById(normalizedRut)) {
+            return "Para firmar un contrato primero inicia sesion con un RUT valido.";
+        }
+
+        ChatState state = getOrCreateChatState(normalizedRut);
+        if (state.pendingSaleId == null) {
+            return "No tienes una venta pendiente por firmar. Primero escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.";
+        }
+
+        String signature = extractSignature(message, rawRut, normalizedRut);
+        if (signature == null || signature.isBlank()) {
+            return "Debes indicar una firma. Ejemplo: firmar Juan Perez";
+        }
+
+        boolean signed = signSale(state.pendingSaleId, signature);
+        if (!signed) {
+            return "No se pudo aplicar la firma digital. La venta puede no existir o ya estar firmada.";
+        }
+
+        Sale signedSale = saleRepository.findById(state.pendingSaleId).orElse(null);
+        Product product = signedSale == null ? null : productRepository.findById(signedSale.getProductId()).orElse(null);
+        String saleId = state.pendingSaleId;
+
+        state.pendingSaleId = null;
+
+        return "Firma digital aplicada correctamente.\n"
+                + "Contrato validado para " + (product == null ? "producto" : product.getName()) + ".\n"
+                + "saleId: " + saleId + "\n"
+                + "estado: COMPLETED";
+    }
+
+    private Product extractProductFromMessage(String message) {
+        Product byQuery = findProductByQuery(message);
+        if (byQuery != null) {
+            return byQuery;
+        }
+
+        String lower = message.toLowerCase();
+        if (lower.contains(PRODUCT_CONSUMO_ID)) {
+            return productRepository.findById(PRODUCT_CONSUMO_ID).orElse(null);
+        }
+        if (lower.contains(PRODUCT_CUENTA_ID)) {
+            return productRepository.findById(PRODUCT_CUENTA_ID).orElse(null);
+        }
+        if (lower.contains(PRODUCT_TARJETA_ID)) {
+            return productRepository.findById(PRODUCT_TARJETA_ID).orElse(null);
+        }
+        return null;
+    }
+
+    private Product findProductByQuery(String query) {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+
+        String compact = query.trim().toLowerCase();
+        List<Product> products = productRepository.findAll();
+
+        for (Product product : products) {
+            if (product.getId() != null && product.getId().equalsIgnoreCase(compact)) {
+                return product;
+            }
+        }
+
+        for (Product product : products) {
+            String name = product.getName() == null ? "" : product.getName().toLowerCase();
+            String description = product.getDescription() == null ? "" : product.getDescription().toLowerCase();
+            if (compact.contains(name) || name.contains(compact) || compact.contains(description) || description.contains(compact)) {
+                return product;
+            }
+            if (compact.contains("credito") && (name.contains("credito") || description.contains("prestamo"))) {
+                return product;
+            }
+            if (compact.contains("cuenta") && name.contains("cuenta")) {
+                return product;
+            }
+            if (compact.contains("tarjeta") && name.contains("tarjeta")) {
+                return product;
+            }
+        }
+
+        return null;
+    }
+
+    private String formatProductsForChat() {
+        List<Product> products = productRepository.findAll();
+        if (products.isEmpty()) {
+            return "No hay productos disponibles.";
+        }
+
+        StringBuilder out = new StringBuilder("Productos disponibles para contratar:\n");
+        for (Product p : products) {
+            out.append("- ").append(p.getId()).append(" - ").append(p.getName()).append(": ").append(p.getDescription()).append("\n");
+        }
+        out.append("Selecciona uno escribiendo su id (ejemplo: prod-1).\n");
+        out.append("Luego escribe 'contratar <id>' para iniciar la venta y 'firmar <tu nombre>' para cerrar el contrato.");
+        return out.toString();
+    }
+
+    private String extractSignature(String message, String rawRut, String normalizedRut) {
+        String trimmed = message == null ? "" : message.trim();
+        String lower = trimmed.toLowerCase();
+        if (!lower.startsWith("firmar")) {
+            return rawRut != null && !rawRut.isBlank() ? rawRut.trim() : normalizedRut;
+        }
+
+        String possible = trimmed.substring("firmar".length()).trim();
+        if (!possible.isBlank()) {
+            return possible;
+        }
+        return rawRut != null && !rawRut.isBlank() ? rawRut.trim() : normalizedRut;
+    }
+
+    private void rememberSelectedProduct(String normalizedRut, String productId) {
+        if (normalizedRut == null) {
+            return;
+        }
+        ChatState state = getOrCreateChatState(normalizedRut);
+        state.selectedProductId = productId;
+    }
+
+    private ChatState getOrCreateChatState(String normalizedRut) {
+        if (normalizedRut == null) {
+            return new ChatState();
+        }
+        return chatStates.computeIfAbsent(normalizedRut, key -> new ChatState());
+    }
+
+    private static class ChatState {
+        private String selectedProductId;
+        private String pendingSaleId;
     }
 }
+
+
