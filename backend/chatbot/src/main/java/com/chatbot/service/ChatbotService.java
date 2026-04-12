@@ -249,21 +249,22 @@ public class ChatbotService {
 
     public String processMessage(String mensaje, String rut) {
         if (mensaje == null || mensaje.isBlank()) {
-            return "No recibi ningun mensaje. Escribe 'productos' para ver opciones.";
+            return "No recibi ningun mensaje. Si lo deseas, escribe 'productos' y te mostrare las opciones disponibles.";
         }
 
         String normalizedRut = normalizeRut(rut);
         String m = mensaje.trim().toLowerCase();
 
         if (m.contains("hola") || m.contains("buenas") || m.contains("inicio")) {
-            return "Hola, puedo ayudarte con FAQ, productos y contratacion. Escribe 'productos' para ver los 3 productos disponibles.";
+            return "Hola. Estoy para ayudarte con preguntas frecuentes, productos y contratacion. Escribe 'productos' para revisar las opciones disponibles.";
         }
 
         if (m.contains("faq") || m.contains("preguntas") || m.contains("ayuda")) {
-            return "FAQ rapida:\n"
+            return "A continuacion tienes una guia rapida:\n"
                     + "- Productos: credito de consumo, cuenta vista y tarjeta de credito.\n"
                     + "- Contratacion: escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.\n"
-                    + "- Firma digital: escribe 'firmar <tu nombre>' para cerrar el contrato.";
+                    + "- Firma digital: escribe 'firmar <tu nombre>' para cerrar el contrato.\n"
+                    + "Si lo deseas, te acompaño paso a paso.";
         }
 
         if (m.contains("producto") || m.contains("catalogo") || m.contains("ofrecen")) {
@@ -278,7 +279,11 @@ public class ChatbotService {
                     + "Si deseas continuar, escribe 'contratar " + matchedProduct.getId() + "'.";
         }
 
-        if (m.contains("contratar") || m.contains("venta")) {
+        if (m.contains("contratar")
+                || m.contains("venta")
+                || m.contains("contratacion")
+                || m.contains("contratación")
+                || m.contains("cantratacion")) {
             return handleContractIntent(m, normalizedRut, rut);
         }
 
@@ -288,17 +293,17 @@ public class ChatbotService {
 
         if (m.contains("saldo")) {
             if (normalizedRut == null) {
-                return "Para consultar saldo primero autenticate y envia tu rut_cliente.";
+                return "Para revisar tu saldo, primero inicia sesion y envia tu rut_cliente.";
             }
-            return "Validacion completada para " + normalizedRut + ". Saldo referencial: $1.500.000.";
+            return "Validamos tu identidad para " + normalizedRut + ". Saldo referencial: $1.500.000.";
         }
 
-        return "No entendi tu consulta. Escribe 'productos', un id como 'prod-1' o 'contratar prod-1'.";
+        return "No pude comprender tu consulta por completo. Prueba con 'productos', con un id como 'prod-1' o con 'contratar prod-1'.";
     }
 
     private String handleContractIntent(String message, String normalizedRut, String rawRut) {
         if (normalizedRut == null || !userRepository.existsById(normalizedRut)) {
-            return "Para contratar un producto primero inicia sesion con un RUT valido.";
+            return "Para contratar un producto, primero debes iniciar sesion con un RUT valido.";
         }
 
         Product product = extractProductFromMessage(message);
@@ -310,19 +315,19 @@ public class ChatbotService {
         }
 
         if (product == null) {
-            return "Indica el producto a contratar. Ejemplos: 'contratar prod-1', 'contratar prod-2', 'contratar prod-3'.";
+            return "Indica que producto deseas contratar. Ejemplos: 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.";
         }
 
         String saleId = startSale(normalizedRut, product.getId());
         if (saleId == null) {
-            return "No se pudo iniciar la venta. Verifica que el producto exista e intentalo nuevamente.";
+            return "No fue posible iniciar la venta en este momento. Verifica que el producto exista e intentalo nuevamente.";
         }
 
         ChatState state = getOrCreateChatState(normalizedRut);
         state.selectedProductId = product.getId();
         state.pendingSaleId = saleId;
 
-        return "Venta iniciada para " + product.getName() + " (" + product.getId() + ").\n"
+        return "Perfecto, iniciamos la venta para " + product.getName() + " (" + product.getId() + ").\n"
                 + "Resumen de contrato:\n"
                 + "- saleId: " + saleId + "\n"
                 + "- rut: " + normalizedRut + "\n"
@@ -337,17 +342,17 @@ public class ChatbotService {
 
         ChatState state = getOrCreateChatState(normalizedRut);
         if (state.pendingSaleId == null) {
-            return "No tienes una venta pendiente por firmar. Primero escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.";
+            return "Aun no tienes una venta pendiente por firmar. Primero escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.";
         }
 
         String signature = extractSignature(message, rawRut, normalizedRut);
         if (signature == null || signature.isBlank()) {
-            return "Debes indicar una firma. Ejemplo: firmar Juan Perez";
+            return "Debes indicar una firma para continuar. Ejemplo: firmar Juan Perez";
         }
 
         boolean signed = signSale(state.pendingSaleId, signature);
         if (!signed) {
-            return "No se pudo aplicar la firma digital. La venta puede no existir o ya estar firmada.";
+            return "No fue posible aplicar la firma digital. La venta puede no existir o ya estar firmada.";
         }
 
         Sale signedSale = saleRepository.findById(state.pendingSaleId).orElse(null);
@@ -357,7 +362,7 @@ public class ChatbotService {
         state.pendingSaleId = null;
 
         return "Firma digital aplicada correctamente.\n"
-                + "Contrato validado para " + (product == null ? "producto" : product.getName()) + ".\n"
+                + "Contrato validado para " + (product == null ? "el producto seleccionado" : product.getName()) + ".\n"
                 + "saleId: " + saleId + "\n"
                 + "estado: COMPLETED";
     }
@@ -418,10 +423,10 @@ public class ChatbotService {
     private String formatProductsForChat() {
         List<Product> products = productRepository.findAll();
         if (products.isEmpty()) {
-            return "No hay productos disponibles.";
+            return "Por el momento no hay productos disponibles.";
         }
 
-        StringBuilder out = new StringBuilder("Productos disponibles para contratar:\n");
+        StringBuilder out = new StringBuilder("Estos son los productos disponibles para contratar:\n");
         for (Product p : products) {
             out.append("- ").append(p.getId()).append(" - ").append(p.getName()).append(": ").append(p.getDescription()).append("\n");
         }

@@ -126,6 +126,12 @@ class ChatbotServiceIntegrationTests {
     }
 
     @Test
+    void contractIntentRecognizesContratacionKeyword() {
+        String response = chatbotService.processMessage("contratacion", SEEDED_RUT_CANONICAL);
+        assertTrue(response.contains("Indica que producto deseas contratar"));
+    }
+
+    @Test
     void signSaleRejectsWhitespaceOnlySignatureAndKeepsSalePending() {
         String saleId = chatbotService.startSale(SEEDED_RUT_CANONICAL, "prod-1");
         assertNotNull(saleId);
