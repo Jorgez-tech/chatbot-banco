@@ -34,6 +34,23 @@ let currentToken = null;
 let selectedProductId = null;
 let pendingSaleId = null;
 
+function apiErrorMessage(data, fallback) {
+  if (!data) return fallback;
+  if (data.detail) return `${data.message || fallback} (${data.detail})`;
+  return data.message || fallback;
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options);
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+  return { response, data };
+}
+
 // ===== FORMATEO DE RUT =====
 function formatRUT(value) {
   // Remove all non-digit and 'k' characters
@@ -131,14 +148,12 @@ btnLogin.addEventListener('click', async () => {
   }
   
   try {
-    const response = await fetch('/api/login', {
+    const { response, data } = await requestJson('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rut, password })
     });
-    
-    const data = await response.json();
-    
+
     if (response.ok && data.token) {
       currentToken = data.token;
       currentUser = rut;
@@ -146,7 +161,7 @@ btnLogin.addEventListener('click', async () => {
       showChatUI();
       appendMessage('bot', `¡Bienvenido ${rut}! ¿En qué puedo ayudarte?`);
     } else {
-      loginError.textContent = data.message || 'Error en la autenticación';
+      loginError.textContent = apiErrorMessage(data, 'Error en la autenticación');
     }
   } catch (error) {
     loginError.textContent = 'Error de conexión con el servidor';
@@ -173,14 +188,12 @@ btnRegister.addEventListener('click', async () => {
   }
   
   try {
-    const response = await fetch('/api/register', {
+    const { response, data } = await requestJson('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rut, password, name, email, phone })
     });
-    
-    const data = await response.json();
-    
+
     if (response.ok) {
       registerError.textContent = '';
       // Limpia formulario y cambia a login
@@ -194,7 +207,7 @@ btnRegister.addEventListener('click', async () => {
       switchTab('login');
       loginError.textContent = '✓ Registro exitoso. Ahora inicia sesión.';
     } else {
-      registerError.textContent = data.message || 'Error en el registro';
+      registerError.textContent = apiErrorMessage(data, 'Error en el registro');
     }
   } catch (error) {
     registerError.textContent = 'Error de conexión con el servidor';
@@ -233,12 +246,16 @@ function appendMessage(sender, text) {
 async function sendMessageText(text) {
   appendMessage('user', text);
   try {
-    const response = await fetch('/api/chat', {
+    const { response, data } = await requestJson('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mensaje: text, rut_cliente: currentUser || null })
     });
-    const data = await response.json();
+
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo procesar tu mensaje.'));
+      return;
+    }
     appendMessage('bot', data.respuesta);
     syncChatStateFromResponse(data.respuesta);
   } catch (error) {
@@ -311,8 +328,13 @@ userInput.addEventListener('keypress', function(e) {
 productsBtn.addEventListener('click', async () => {
   appendMessage('user', 'Ver productos');
   try {
-    const res = await fetch('/api/products');
-    const products = await res.json();
+    const { response, data } = await requestJson('/api/products');
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo obtener la lista de productos.'));
+      return;
+    }
+
+    const products = data || [];
     if (!products.length) appendMessage('bot', 'No hay productos disponibles.');
     else {
       let out = 'Productos disponibles:\n';
@@ -348,11 +370,15 @@ signBtn.addEventListener('click', () => {
 
 resetBtn.addEventListener('click', async () => {
   try {
-    await fetch('/api/reset', { method: 'POST' });
+    const { response, data } = await requestJson('/api/reset', { method: 'POST' });
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No fue posible reiniciar los datos.'));
+      return;
+    }
     selectedProductId = null;
     pendingSaleId = null;
     updateActionButtons();
-    appendMessage('bot', 'Datos reiniciados en el servidor.');
+    appendMessage('bot', data.message || 'Datos reiniciados en el servidor.');
   } catch (err) {
     appendMessage('bot', 'No fue posible reiniciar los datos.');
   }

@@ -1,5 +1,6 @@
 package com.chatbot;
 
+import com.chatbot.model.Sale;
 import com.chatbot.repository.ProductRepository;
 import com.chatbot.repository.SaleRepository;
 import com.chatbot.repository.UserRepository;
@@ -14,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -114,5 +116,24 @@ class ChatbotServiceIntegrationTests {
                 .count();
 
         assertEquals(completedBefore + 3, completedAfter);
+    }
+
+    @Test
+    void processMessageReturnsGuidanceWhenMessageIsBlank() {
+        String response = chatbotService.processMessage("   ", SEEDED_RUT_CANONICAL);
+        assertTrue(response.contains("No recibi ningun mensaje"));
+        assertTrue(response.contains("productos"));
+    }
+
+    @Test
+    void signSaleRejectsWhitespaceOnlySignatureAndKeepsSalePending() {
+        String saleId = chatbotService.startSale(SEEDED_RUT_CANONICAL, "prod-1");
+        assertNotNull(saleId);
+
+        boolean signed = chatbotService.signSale(saleId, "   ");
+        assertFalse(signed);
+
+        Sale sale = saleRepository.findById(saleId).orElseThrow();
+        assertEquals("PENDING", sale.getStatus());
     }
 }

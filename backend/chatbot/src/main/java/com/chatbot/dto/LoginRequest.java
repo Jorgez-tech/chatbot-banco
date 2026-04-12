@@ -1,7 +1,15 @@
 package com.chatbot.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class LoginRequest {
+    @NotBlank(message = "RUT es requerido")
+    @Size(max = 20, message = "RUT inválido")
     private String rut;
+
+    @NotBlank(message = "Contraseña es requerida")
+    @Size(max = 120, message = "Contraseña inválida")
     private String password;
 
     public String getRut() {

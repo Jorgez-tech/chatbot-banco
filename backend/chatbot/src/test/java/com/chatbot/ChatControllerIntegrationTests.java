@@ -1,6 +1,7 @@
 package com.chatbot;
 
 import com.chatbot.controller.ChatController;
+import com.chatbot.controller.ApiExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,9 +23,63 @@ class ChatControllerIntegrationTests {
     @Autowired
     private ChatController chatController;
 
+    @Autowired
+    private ApiExceptionHandler apiExceptionHandler;
+
     @BeforeEach
     void setupMockMvc() {
-        mockMvc = MockMvcBuilders.standaloneSetup(chatController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(chatController)
+                .setControllerAdvice(apiExceptionHandler)
+                .build();
+    }
+
+    @Test
+    void loginRejectsBlankRutWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rut": "",
+                                  "password": "Password123"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Solicitud inválida"));
+    }
+
+    @Test
+    void saleStartRejectsMissingProductId() throws Exception {
+        mockMvc.perform(post("/api/sale/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rut": "11.111.111-1"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Debes indicar rut y productId"));
+    }
+
+    @Test
+    void saleSignRejectsMissingSignature() throws Exception {
+        mockMvc.perform(post("/api/sale/sign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "saleId": "abc-123",
+                                  "signature": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Debes indicar saleId y signature"));
+    }
+
+    @Test
+    void chatRejectsMissingBodyWithBadRequest() throws Exception {
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Solicitud inválida"));
     }
 
     @Test

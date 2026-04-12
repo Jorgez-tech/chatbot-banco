@@ -1,10 +1,27 @@
 package com.chatbot.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class RegisterRequest {
+    @NotBlank(message = "RUT es requerido")
+    @Size(max = 20, message = "RUT inválido")
     private String rut;
+
+    @NotBlank(message = "La contraseña es requerida")
+    @Size(max = 120, message = "La contraseña es inválida")
     private String password;
+
+    @NotBlank(message = "El nombre es requerido")
+    @Size(max = 255, message = "El nombre es inválido")
     private String name;
+
+    @Email(message = "Email inválido")
+    @Size(max = 255, message = "Email inválido")
     private String email;
+
+    @Size(max = 50, message = "Teléfono inválido")
     private String phone;
 
     public String getRut() {

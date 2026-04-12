@@ -177,7 +177,7 @@ public class ChatbotService {
     }
 
     public String startSale(String rut, String productId) {
-        if (rut == null || productId == null) {
+        if (rut == null || rut.isBlank() || productId == null || productId.isBlank()) {
             return null;
         }
         String normalizedRut = normalizeRut(rut);
@@ -185,20 +185,29 @@ public class ChatbotService {
             return null;
         }
 
-        if (!userRepository.existsById(normalizedRut) || !productRepository.existsById(productId)) {
+        String normalizedProductId = productId.trim();
+
+        if (!userRepository.existsById(normalizedRut) || !productRepository.existsById(normalizedProductId)) {
             return null;
         }
         String saleId = UUID.randomUUID().toString();
-        Sale sale = new Sale(saleId, productId, normalizedRut, "PENDING", null);
+        Sale sale = new Sale(saleId, normalizedProductId, normalizedRut, "PENDING", null);
         saleRepository.save(sale);
         return saleId;
     }
 
     public boolean signSale(String saleId, String signature) {
-        if (saleId == null || signature == null || signature.isBlank()) {
+        if (saleId == null || saleId.isBlank() || signature == null || signature.isBlank()) {
             return false;
         }
-        Optional<Sale> saleOpt = saleRepository.findById(saleId);
+
+        String normalizedSaleId = saleId.trim();
+        String normalizedSignature = signature.trim();
+        if (normalizedSignature.isBlank()) {
+            return false;
+        }
+
+        Optional<Sale> saleOpt = saleRepository.findById(normalizedSaleId);
         if (saleOpt.isEmpty()) {
             return false;
         }
@@ -206,7 +215,7 @@ public class ChatbotService {
         if ("COMPLETED".equals(sale.getStatus())) {
             return false;
         }
-        sale.setSignature(signature);
+        sale.setSignature(normalizedSignature);
         sale.setStatus("COMPLETED");
         saleRepository.save(sale);
         return true;
