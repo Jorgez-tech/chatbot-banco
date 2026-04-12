@@ -103,7 +103,7 @@ class ChatbotServiceIntegrationTests {
             assertTrue(selectResponse.toLowerCase().contains(productId));
 
             String contractResponse = chatbotService.processMessage("contratar " + productId, SEEDED_RUT_CANONICAL);
-            assertTrue(contractResponse.contains("saleId:"));
+            assertTrue(contractResponse.contains("id-transaccion:"));
             assertTrue(contractResponse.contains("estado: PENDING"));
 
             String signResponse = chatbotService.processMessage("firmar Cliente QA", SEEDED_RUT_CANONICAL);
@@ -129,6 +129,13 @@ class ChatbotServiceIntegrationTests {
     void contractIntentRecognizesContratacionKeyword() {
         String response = chatbotService.processMessage("contratacion", SEEDED_RUT_CANONICAL);
         assertTrue(response.contains("Indica que producto deseas contratar"));
+    }
+
+    @Test
+    void singleCharacterInputDoesNotAutoSelectProduct() {
+        String response = chatbotService.processMessage("n", SEEDED_RUT_CANONICAL);
+        assertFalse(response.contains("Producto seleccionado:"));
+        assertTrue(response.contains("productos"));
     }
 
     @Test

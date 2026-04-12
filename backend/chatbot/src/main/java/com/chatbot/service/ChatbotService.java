@@ -329,7 +329,7 @@ public class ChatbotService {
 
         return "Perfecto, iniciamos la venta para " + product.getName() + " (" + product.getId() + ").\n"
                 + "Resumen de contrato:\n"
-                + "- saleId: " + saleId + "\n"
+                + "- id-transaccion: " + saleId + "\n"
                 + "- rut: " + normalizedRut + "\n"
                 + "- estado: PENDING\n"
                 + "Para firmar digitalmente, escribe: firmar " + (rawRut == null ? "Cliente" : rawRut.trim());
@@ -363,7 +363,7 @@ public class ChatbotService {
 
         return "Firma digital aplicada correctamente.\n"
                 + "Contrato validado para " + (product == null ? "el producto seleccionado" : product.getName()) + ".\n"
-                + "saleId: " + saleId + "\n"
+                + "id-transaccion: " + saleId + "\n"
                 + "estado: COMPLETED";
     }
 
@@ -398,6 +398,11 @@ public class ChatbotService {
             if (product.getId() != null && product.getId().equalsIgnoreCase(compact)) {
                 return product;
             }
+        }
+
+        // Evita que entradas de 1-2 caracteres (por ejemplo "n") hagan match difuso con cualquier nombre.
+        if (compact.length() < 3) {
+            return null;
         }
 
         for (Product product : products) {
