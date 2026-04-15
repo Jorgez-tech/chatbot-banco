@@ -88,7 +88,10 @@ public class ChatController {
     }
 
     @PostMapping("/sale/start")
-    public ResponseEntity<Map<String, String>> startSale(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, String>> startSale(
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
         if (body == null) {
             return badRequest("Solicitud inválida");
         }
@@ -96,6 +99,12 @@ public class ChatController {
         String productId = body.get("productId");
         if (isBlank(rut) || isBlank(productId)) {
             return badRequest("Debes indicar rut y productId");
+        }
+
+        String token = extractBearerToken(authorization);
+        if (token == null || !chatbotService.isTokenValidForRut(token, rut)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Sesión inválida o expirada"));
         }
 
         String saleId = chatbotService.startSale(rut, productId);
@@ -107,7 +116,10 @@ public class ChatController {
     }
 
     @PostMapping("/sale/sign")
-    public ResponseEntity<Map<String, String>> signSale(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, String>> signSale(
+            @RequestBody Map<String, String> body,
+            @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
         if (body == null) {
             return badRequest("Solicitud inválida");
         }
@@ -116,6 +128,14 @@ public class ChatController {
         String signature = body.get("signature");
         if (isBlank(saleId) || isBlank(signature)) {
             return badRequest("Debes indicar saleId y signature");
+        }
+
+        String token = extractBearerToken(authorization);
+        String rutFromToken = token == null ? null : chatbotService.getRutFromToken(token);
+        Sale sale = chatbotService.getSaleById(saleId);
+        if (rutFromToken == null || sale == null || !rutFromToken.equals(sale.getRut())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Sesión inválida o expirada"));
         }
 
         boolean ok = chatbotService.signSale(saleId, signature);
@@ -158,5 +178,18 @@ public class ChatController {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || authorization.isBlank()) {
+            return null;
+        }
+
+        if (!authorization.startsWith("Bearer ")) {
+            return null;
+        }
+
+        String token = authorization.substring("Bearer ".length()).trim();
+        return token.isBlank() ? null : token;
     }
 }

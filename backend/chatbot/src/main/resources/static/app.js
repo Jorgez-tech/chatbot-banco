@@ -41,7 +41,15 @@ function apiErrorMessage(data, fallback) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const headers = { ...(options.headers || {}) };
+  if (currentToken && !headers.Authorization && !headers.authorization) {
+    headers.Authorization = `Bearer ${currentToken}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
   let data = null;
   try {
     data = await response.json();
@@ -55,15 +63,15 @@ async function requestJson(url, options = {}) {
 function formatRUT(value) {
   // Remove all non-digit and 'k' characters
   value = value.replace(/[^\d kK]/g, '').toUpperCase();
-  
+
   // Keep only first 8 digits and 1 letter
   if (value.length > 9) {
     value = value.substring(0, 9);
   }
-  
+
   let formatted = '';
   let cleanValue = value.replace(/\D/g, '').slice(0, 8);
-  
+
   if (cleanValue.length === 0) {
     formatted = '';
   } else if (cleanValue.length <= 1) {
@@ -71,20 +79,20 @@ function formatRUT(value) {
   } else if (cleanValue.length <= 4) {
     formatted = cleanValue.slice(0, 1) + '.' + cleanValue.slice(1);
   } else if (cleanValue.length <= 7) {
-    formatted = cleanValue.slice(0, 1) + '.' + 
-                cleanValue.slice(1, 4) + '.' + 
-                cleanValue.slice(4);
+    formatted = cleanValue.slice(0, 1) + '.' +
+      cleanValue.slice(1, 4) + '.' +
+      cleanValue.slice(4);
   } else {
-    formatted = cleanValue.slice(0, 2) + '.' + 
-                cleanValue.slice(2, 5) + '.' + 
-                cleanValue.slice(5, 8);
+    formatted = cleanValue.slice(0, 2) + '.' +
+      cleanValue.slice(2, 5) + '.' +
+      cleanValue.slice(5, 8);
   }
-  
+
   // Add letter if present
   if (value.length > 8) {
     formatted += '-' + value[8];
   }
-  
+
   return formatted;
 }
 
@@ -109,7 +117,7 @@ function validatePassword(password) {
 registerPassword.addEventListener('input', (e) => {
   const pwd = e.target.value;
   const validation = validatePassword(pwd);
-  
+
   document.getElementById('req-length').className = validation.length ? 'requirement valid' : 'requirement invalid';
   document.getElementById('req-number').className = validation.number ? 'requirement valid' : 'requirement invalid';
   document.getElementById('req-uppercase').className = validation.uppercase ? 'requirement valid' : 'requirement invalid';
@@ -121,7 +129,7 @@ function switchTab(tab) {
   const registerForm = document.getElementById('register-form');
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
-  
+
   if (tab === 'login') {
     loginForm.classList.add('active');
     registerForm.classList.remove('active');
@@ -141,12 +149,12 @@ function switchTab(tab) {
 btnLogin.addEventListener('click', async () => {
   const rut = loginRut.value.trim();
   const password = loginPassword.value;
-  
+
   if (!rut || !password) {
     loginError.textContent = 'Por favor completa todos los campos';
     return;
   }
-  
+
   try {
     const { response, data } = await requestJson('/api/login', {
       method: 'POST',
@@ -175,18 +183,18 @@ btnRegister.addEventListener('click', async () => {
   const name = registerName.value.trim();
   const email = registerEmail.value.trim();
   const phone = registerPhone.value.trim();
-  
+
   if (!rut || !password || !name) {
     registerError.textContent = 'Por favor completa RUT, nombre y contraseña';
     return;
   }
-  
+
   const validation = validatePassword(password);
   if (!validation.length || !validation.number || !validation.uppercase) {
     registerError.textContent = 'La contraseña no cumple los requisitos';
     return;
   }
-  
+
   try {
     const { response, data } = await requestJson('/api/register', {
       method: 'POST',
@@ -268,18 +276,11 @@ function syncChatStateFromResponse(responseText) {
     return;
   }
 
-  const productMatch = responseText.match(/\bprod-[1-9]\b/i);
-  if (productMatch) {
-    selectedProductId = productMatch[0].toLowerCase();
-  }
-
-  const saleMatch = responseText.match(/saleId:\s*([a-zA-Z0-9\-]+)/i);
-  if (saleMatch) {
-    pendingSaleId = saleMatch[1];
-  }
-
-  if (responseText.includes('estado: COMPLETED')) {
-    pendingSaleId = null;
+  if (/^Producto seleccionado:/i.test(responseText)) {
+    const productMatch = responseText.match(/\bprod-[1-9]\b/i);
+    if (productMatch) {
+      selectedProductId = productMatch[0].toLowerCase();
+    }
   }
 
   updateActionButtons();
@@ -317,11 +318,17 @@ function updateActionButtons() {
 sendBtn.addEventListener('click', () => {
   const text = userInput.value.trim();
   if (!text) return;
+
+  if (/^prod-[1-3]$/i.test(text)) {
+    selectedProductId = text.toLowerCase();
+    updateActionButtons();
+  }
+
   userInput.value = '';
   sendMessageText(text);
 });
 
-userInput.addEventListener('keypress', function(e) {
+userInput.addEventListener('keypress', function (e) {
   if (e.key === 'Enter') sendBtn.click();
 });
 
@@ -347,15 +354,34 @@ productsBtn.addEventListener('click', async () => {
   }
 });
 
-buyBtn.addEventListener('click', () => {
+buyBtn.addEventListener('click', async () => {
   if (!selectedProductId) {
     appendMessage('bot', 'Primero selecciona un producto escribiendo su ID (prod-1, prod-2, prod-3).');
     return;
   }
-  sendMessageText(`contratar ${selectedProductId}`);
+
+  appendMessage('user', `contratar ${selectedProductId}`);
+  try {
+    const { response, data } = await requestJson('/api/sale/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rut: currentUser, productId: selectedProductId })
+    });
+
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo iniciar la venta.'));
+      return;
+    }
+
+    pendingSaleId = data.saleId || null;
+    updateActionButtons();
+    appendMessage('bot', `${data.message || 'Venta iniciada'}${pendingSaleId ? ` (saleId: ${pendingSaleId})` : ''}`);
+  } catch (error) {
+    appendMessage('bot', 'Error de conexión con el servidor.');
+  }
 });
 
-signBtn.addEventListener('click', () => {
+signBtn.addEventListener('click', async () => {
   if (!pendingSaleId) {
     appendMessage('bot', 'No hay contrato pendiente por firmar. Primero inicia una contratación.');
     return;
@@ -365,7 +391,27 @@ signBtn.addEventListener('click', () => {
     appendMessage('bot', 'Firma cancelada.');
     return;
   }
-  sendMessageText(`firmar ${signature.trim()}`);
+
+  appendMessage('user', `firmar ${signature.trim()}`);
+  try {
+    const { response, data } = await requestJson('/api/sale/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId: pendingSaleId, signature: signature.trim() })
+    });
+
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No fue posible aplicar la firma digital.'));
+      return;
+    }
+
+    pendingSaleId = null;
+    updateActionButtons();
+    appendMessage('bot', data.message || 'Firma digital aplicada.');
+    appendMessage('bot', 'estado: COMPLETED');
+  } catch (error) {
+    appendMessage('bot', 'Error de conexión con el servidor.');
+  }
 });
 
 resetBtn.addEventListener('click', async () => {

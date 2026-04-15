@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -88,7 +89,10 @@ class ChatControllerIntegrationTests {
         mockMvc.perform(post("/api/reset"))
                 .andExpect(status().isOk());
 
+        String token = loginAndGetToken();
+
         MvcResult startResult = mockMvc.perform(post("/api/sale/start")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -104,6 +108,7 @@ class ChatControllerIntegrationTests {
         String saleId = extractSaleId(startResult.getResponse().getContentAsString());
 
         mockMvc.perform(post("/api/sale/sign")
+                                                                                                .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -120,7 +125,10 @@ class ChatControllerIntegrationTests {
         mockMvc.perform(post("/api/reset"))
                 .andExpect(status().isOk());
 
+        String token = loginAndGetToken();
+
         MvcResult startResult = mockMvc.perform(post("/api/sale/start")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -134,6 +142,7 @@ class ChatControllerIntegrationTests {
         String saleId = extractSaleId(startResult.getResponse().getContentAsString());
 
         mockMvc.perform(post("/api/sale/sign")
+                                                                                                .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -144,6 +153,7 @@ class ChatControllerIntegrationTests {
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/sale/sign")
+                                                                                                .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -153,6 +163,93 @@ class ChatControllerIntegrationTests {
                                 """.formatted(saleId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Venta no encontrada o ya firmada"));
+    }
+
+    @Test
+    void saleStartRejectsMissingSession() throws Exception {
+        mockMvc.perform(post("/api/sale/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rut": "11.111.111-1",
+                                  "productId": "prod-1"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Sesión inválida o expirada"));
+    }
+
+    @Test
+    void saleFlowE2EAllowsFetchingCompletedSale() throws Exception {
+        mockMvc.perform(post("/api/reset"))
+                .andExpect(status().isOk());
+
+        String token = loginAndGetToken();
+
+        MvcResult startResult = mockMvc.perform(post("/api/sale/start")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rut": "11.111.111-1",
+                                  "productId": "prod-3"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.saleId").isNotEmpty())
+                .andReturn();
+
+        String saleId = extractSaleId(startResult.getResponse().getContentAsString());
+
+        mockMvc.perform(post("/api/sale/sign")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "saleId": "%s",
+                                  "signature": "Cliente E2E"
+                                }
+                                """.formatted(saleId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Firma digital aplicada"));
+
+        mockMvc.perform(get("/api/sale/{saleId}", saleId)
+                        .param("rut", "11.111.111-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(saleId))
+                .andExpect(jsonPath("$.productId").value("prod-3"))
+                .andExpect(jsonPath("$.rut").value("11111111-1"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+    }
+
+    private String loginAndGetToken() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rut": "11.111.111-1",
+                                  "password": "Password123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andReturn();
+
+        return extractToken(loginResult.getResponse().getContentAsString());
+    }
+
+    private String extractToken(String body) {
+        String key = "\"token\":\"";
+        int start = body.indexOf(key);
+        if (start < 0) {
+            return "";
+        }
+        int valueStart = start + key.length();
+        int end = body.indexOf('"', valueStart);
+        if (end < 0) {
+            return "";
+        }
+        return body.substring(valueStart, end);
     }
 
     private String extractSaleId(String body) {
