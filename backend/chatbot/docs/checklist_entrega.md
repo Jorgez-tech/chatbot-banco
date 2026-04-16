@@ -19,7 +19,7 @@
 ## 3. Pruebas
 
 - [ ] Ejecutar `./mvnw.cmd test` en `backend/chatbot` sin fallos.
-- [ ] Verificar prueba E2E REST (login -> sale/start -> sale/sign -> sale/{id}).
+- [ ] Verificar prueba E2E REST (login -> sale/start -> sale/sign -> sale/{saleId}).
 
 ## 4. Documentacion
 

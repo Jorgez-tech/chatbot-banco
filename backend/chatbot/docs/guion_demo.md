@@ -26,7 +26,7 @@
 ## 4. Contratacion y firma (90s)
 
 1. Pulsar `Contratar producto seleccionado`.
-2. Mostrar confirmacion de venta iniciada y `saleId`.
+2. Mostrar confirmacion de venta iniciada y el ID de venta generado.
 3. Pulsar `Firmar contrato pendiente`.
 4. Ingresar firma, por ejemplo `Cliente Demo`.
 5. Mostrar mensaje de firma aplicada y estado final `COMPLETED`.

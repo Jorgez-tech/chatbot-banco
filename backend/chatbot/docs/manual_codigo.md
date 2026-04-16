@@ -142,3 +142,10 @@ Ejecucion en Windows:
 - No romper contratos API ni frontend.
 - Toda correccion funcional debe incluir prueba minima.
 - Preferir mensajes claros, formales y amigables para el usuario final.
+
+## 11. Convenciones de nomenclatura
+
+- **Codigo fuente** (clases, variables, metodos, campos JPA): en ingles.
+- **Mensajes al usuario** (respuestas de chat, errores, FAQs): en español.
+- **Claves JSON de la API** (`saleId`, `productId`, `rut`, `token`, etc.): en ingles (camelCase).
+- **Serializacion de `Sale.id`**: el campo se llama `id` en la entidad y la base de datos, pero se expone como `saleId` en toda la API REST mediante `@JsonProperty("saleId")`.
