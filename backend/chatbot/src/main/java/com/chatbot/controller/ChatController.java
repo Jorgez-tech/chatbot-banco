@@ -98,7 +98,7 @@ public class ChatController {
         String rut = body.get("rut");
         String productId = body.get("productId");
         if (isBlank(rut) || isBlank(productId)) {
-            return badRequest("Debes indicar rut y productId");
+            return badRequest("Debes indicar el RUT y el ID del producto");
         }
 
         String token = extractBearerToken(authorization);
@@ -127,7 +127,7 @@ public class ChatController {
         String saleId = body.get("saleId");
         String signature = body.get("signature");
         if (isBlank(saleId) || isBlank(signature)) {
-            return badRequest("Debes indicar saleId y signature");
+            return badRequest("Debes indicar el ID de venta y la firma");
         }
 
         String token = extractBearerToken(authorization);

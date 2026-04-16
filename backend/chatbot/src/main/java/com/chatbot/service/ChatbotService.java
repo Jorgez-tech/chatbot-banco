@@ -101,8 +101,8 @@ public class ChatbotService {
     public List<Map<String, String>> getFaqs() {
         List<Map<String, String>> faqs = new ArrayList<>();
         faqs.add(Map.of("pregunta", "¿Qué productos ofrecen?", "respuesta", "Crédito, cuenta vista y tarjeta de crédito."));
-        faqs.add(Map.of("pregunta", "¿Cómo inicio una venta?", "respuesta", "Solicita contratar y luego usa /api/sale/start."));
-        faqs.add(Map.of("pregunta", "¿Cómo firmo contrato?", "respuesta", "Usa /api/sale/sign al finalizar."));
+        faqs.add(Map.of("pregunta", "¿Cómo inicio una venta?", "respuesta", "Selecciona un producto y usa el botón 'Contratar producto seleccionado'."));
+        faqs.add(Map.of("pregunta", "¿Cómo firmo contrato?", "respuesta", "Usa el botón 'Firmar contrato pendiente' al finalizar."));
         return faqs;
     }
     private String normalizeRut(String rut) {
@@ -326,7 +326,7 @@ public class ChatbotService {
 
         if (m.contains("saldo")) {
             if (normalizedRut == null) {
-                return "Para revisar tu saldo, primero inicia sesion y envia tu rut_cliente.";
+                return "Para revisar tu saldo, primero inicia sesion y envia tu RUT.";
             }
             return "Validamos tu identidad para " + normalizedRut + ". Saldo referencial: $1.500.000.";
         }

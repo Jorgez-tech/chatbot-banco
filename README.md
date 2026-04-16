@@ -39,7 +39,7 @@ Desde `backend/chatbot`:
 2. Consulta de productos (`/api/products`) o chat (`/api/chat`).
 3. Inicio de venta (`/api/sale/start`) con `rut` y `productId`.
 4. Firma digital (`/api/sale/sign`) con `saleId` y `signature`.
-5. Consulta de venta (`/api/sale/{saleId}`) o listado (`/api/sales`).
+5. Consulta de venta (`/api/sale/{saleId}`) o listado (`/api/sales`). En ambos casos, la venta se serializa con la clave `saleId`.
 
 ## Productos minimos de contratacion
 El sistema mantiene al menos 3 productos semilla:

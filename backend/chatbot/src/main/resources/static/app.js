@@ -375,7 +375,7 @@ buyBtn.addEventListener('click', async () => {
 
     pendingSaleId = data.saleId || null;
     updateActionButtons();
-    appendMessage('bot', `${data.message || 'Venta iniciada'}${pendingSaleId ? ` (saleId: ${pendingSaleId})` : ''}`);
+    appendMessage('bot', `${data.message || 'Venta iniciada'}${pendingSaleId ? ` (ID de venta: ${pendingSaleId})` : ''}`);
   } catch (error) {
     appendMessage('bot', 'Error de conexión con el servidor.');
   }

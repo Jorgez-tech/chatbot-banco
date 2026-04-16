@@ -58,7 +58,7 @@ class ChatControllerIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Debes indicar rut y productId"));
+                .andExpect(jsonPath("$.message").value("Debes indicar el RUT y el ID del producto"));
     }
 
     @Test
@@ -72,7 +72,7 @@ class ChatControllerIntegrationTests {
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Debes indicar saleId y signature"));
+                .andExpect(jsonPath("$.message").value("Debes indicar el ID de venta y la firma"));
     }
 
     @Test
@@ -216,7 +216,7 @@ class ChatControllerIntegrationTests {
         mockMvc.perform(get("/api/sale/{saleId}", saleId)
                         .param("rut", "11.111.111-1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(saleId))
+                .andExpect(jsonPath("$.saleId").value(saleId))
                 .andExpect(jsonPath("$.productId").value("prod-3"))
                 .andExpect(jsonPath("$.rut").value("11111111-1"))
                 .andExpect(jsonPath("$.status").value("COMPLETED"));

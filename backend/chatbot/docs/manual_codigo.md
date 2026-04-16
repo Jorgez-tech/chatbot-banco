@@ -91,7 +91,7 @@ Notas de contrato:
 1. Cliente autenticado.
 2. Selecciona producto (`prod-1`, `prod-2`, `prod-3`).
 3. Inicia venta con `rut + productId`.
-4. Sistema genera `saleId` con estado `PENDING`.
+4. Sistema genera un identificador de venta (serializado como `saleId` via `@JsonProperty`) con estado `PENDING`.
 5. Cliente firma digitalmente (`saleId + signature`).
 6. Estado final: `COMPLETED`.
 
