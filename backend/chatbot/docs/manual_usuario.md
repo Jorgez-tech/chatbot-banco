@@ -41,7 +41,7 @@ Tambien puedes ingresar el RUT en formatos equivalentes: `11111111-1` o `1111111
 2. Pulsa `Ver productos`.
 3. Escribe en el chat un ID de producto (`prod-1`, `prod-2`, `prod-3`).
 4. Pulsa `Contratar producto seleccionado`.
-5. Pulsa `Firmar contrato pendiente` e ingresa tu firma.
+5. Pulsa `Firmar contrato pendiente`. El sistema mostrara un resumen del contrato (producto, RUT, estado) e ingresa tu firma.
 6. Confirma el cierre con el mensaje `estado: COMPLETED`.
 
 ## 6. Productos disponibles

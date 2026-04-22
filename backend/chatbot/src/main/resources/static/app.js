@@ -251,8 +251,25 @@ function appendMessage(sender, text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// ===== INDICADOR DE ESCRITURA =====
+function showTyping() {
+  hideTyping();
+  const el = document.createElement('div');
+  el.className = 'message bot-message typing-indicator';
+  el.id = 'typing-indicator';
+  el.innerText = 'Escribiendo...';
+  chatMessages.appendChild(el);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
 async function sendMessageText(text) {
   appendMessage('user', text);
+  showTyping();
   try {
     const { response, data } = await requestJson('/api/chat', {
       method: 'POST',
@@ -260,6 +277,7 @@ async function sendMessageText(text) {
       body: JSON.stringify({ mensaje: text, rut_cliente: currentUser || null })
     });
 
+    hideTyping();
     if (!response.ok) {
       appendMessage('bot', apiErrorMessage(data, 'No se pudo procesar tu mensaje.'));
       return;
@@ -267,6 +285,7 @@ async function sendMessageText(text) {
     appendMessage('bot', data.respuesta);
     syncChatStateFromResponse(data.respuesta);
   } catch (error) {
+    hideTyping();
     appendMessage('bot', 'Error de conexión con el servidor.');
   }
 }
@@ -334,8 +353,10 @@ userInput.addEventListener('keypress', function (e) {
 
 productsBtn.addEventListener('click', async () => {
   appendMessage('user', 'Ver productos');
+  showTyping();
   try {
     const { response, data } = await requestJson('/api/products');
+    hideTyping();
     if (!response.ok) {
       appendMessage('bot', apiErrorMessage(data, 'No se pudo obtener la lista de productos.'));
       return;
@@ -350,6 +371,7 @@ productsBtn.addEventListener('click', async () => {
       appendMessage('bot', 'Escribe el ID del producto (ej: prod-1) para seleccionarlo y luego usa el botón "Contratar producto seleccionado".');
     }
   } catch (err) {
+    hideTyping();
     appendMessage('bot', 'No se pudo obtener la lista de productos.');
   }
 });
@@ -361,6 +383,7 @@ buyBtn.addEventListener('click', async () => {
   }
 
   appendMessage('user', `contratar ${selectedProductId}`);
+  showTyping();
   try {
     const { response, data } = await requestJson('/api/sale/start', {
       method: 'POST',
@@ -368,6 +391,7 @@ buyBtn.addEventListener('click', async () => {
       body: JSON.stringify({ rut: currentUser, productId: selectedProductId })
     });
 
+    hideTyping();
     if (!response.ok) {
       appendMessage('bot', apiErrorMessage(data, 'No se pudo iniciar la venta.'));
       return;
@@ -377,6 +401,7 @@ buyBtn.addEventListener('click', async () => {
     updateActionButtons();
     appendMessage('bot', `${data.message || 'Venta iniciada'}${pendingSaleId ? ` (ID de venta: ${pendingSaleId})` : ''}`);
   } catch (error) {
+    hideTyping();
     appendMessage('bot', 'Error de conexión con el servidor.');
   }
 });
@@ -386,6 +411,17 @@ signBtn.addEventListener('click', async () => {
     appendMessage('bot', 'No hay contrato pendiente por firmar. Primero inicia una contratación.');
     return;
   }
+
+  // Mostrar resumen del contrato antes de solicitar la firma
+  try {
+    const { response: saleResp, data: saleData } = await requestJson(`/api/sale/${pendingSaleId}?rut=${encodeURIComponent(currentUser)}`);
+    if (saleResp.ok && saleData) {
+      appendMessage('bot', `Contrato pendiente:\n- Producto: ${saleData.productId}\n- RUT: ${saleData.rut}\n- Estado: ${saleData.status}\nIngresa tu firma para confirmar.`);
+    }
+  } catch (_) {
+    // Si falla la consulta, se continua igualmente con la firma
+  }
+
   const signature = window.prompt('Ingresa tu firma digital (ejemplo: Nombre Apellido)');
   if (!signature || !signature.trim()) {
     appendMessage('bot', 'Firma cancelada.');
@@ -393,6 +429,7 @@ signBtn.addEventListener('click', async () => {
   }
 
   appendMessage('user', `firmar ${signature.trim()}`);
+  showTyping();
   try {
     const { response, data } = await requestJson('/api/sale/sign', {
       method: 'POST',
@@ -400,6 +437,7 @@ signBtn.addEventListener('click', async () => {
       body: JSON.stringify({ saleId: pendingSaleId, signature: signature.trim() })
     });
 
+    hideTyping();
     if (!response.ok) {
       appendMessage('bot', apiErrorMessage(data, 'No fue posible aplicar la firma digital.'));
       return;
@@ -410,6 +448,7 @@ signBtn.addEventListener('click', async () => {
     appendMessage('bot', data.message || 'Firma digital aplicada.');
     appendMessage('bot', 'estado: COMPLETED');
   } catch (error) {
+    hideTyping();
     appendMessage('bot', 'Error de conexión con el servidor.');
   }
 });

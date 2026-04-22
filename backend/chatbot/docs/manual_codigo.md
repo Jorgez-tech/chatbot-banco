@@ -97,8 +97,13 @@ Notas de contrato:
 
 Atajos de uso en chat:
 
-- Contratacion: escribir `contratar ...` para recibir guia del flujo en UI.
-- Firma: escribir `firmar ...` para recibir guia del flujo en UI.
+- Contratacion: escribir `contratar` para recibir guia hacia el boton de contratacion.
+- Firma: escribir `firmar` para recibir guia hacia el boton de firma.
+
+Indicadores UX:
+
+- El chat muestra un indicador `Escribiendo...` mientras espera respuesta del servidor.
+- Al firmar, el frontend consulta `/api/sale/{saleId}` y muestra un resumen del contrato (producto, RUT, estado) antes de solicitar la firma.
 
 ### 7.1 Separacion de responsabilidades acordada
 

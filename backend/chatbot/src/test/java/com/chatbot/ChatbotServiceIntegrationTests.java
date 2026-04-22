@@ -156,7 +156,7 @@ class ChatbotServiceIntegrationTests {
         chatbotService.processMessage("prod-3", SEEDED_RUT_CANONICAL);
         String response = chatbotService.processMessage(".", SEEDED_RUT_CANONICAL);
 
-        assertTrue(response.contains("contratar prod-3"));
+        assertTrue(response.contains("prod-3"));
     }
 
     @Test

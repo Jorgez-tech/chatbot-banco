@@ -282,8 +282,8 @@ public class ChatbotService {
         if (m.contains("faq") || m.contains("preguntas") || m.contains("ayuda")) {
             return "A continuacion tienes una guia rapida:\n"
                     + "- Productos: credito de consumo, cuenta vista y tarjeta de credito.\n"
-                    + "- Contratacion: escribe 'contratar prod-1', 'contratar prod-2' o 'contratar prod-3'.\n"
-                    + "- Firma digital: escribe 'firmar <tu nombre>' para cerrar el contrato.\n"
+                    + "- Contratacion: selecciona un producto (ej: prod-1) y usa el boton 'Contratar producto seleccionado'.\n"
+                    + "- Firma digital: usa el boton 'Firmar contrato pendiente' para cerrar el contrato.\n"
                     + "Si lo deseas, te acompaño paso a paso.";
         }
 
@@ -296,7 +296,7 @@ public class ChatbotService {
             rememberSelectedProduct(normalizedRut, matchedProduct.getId());
             return "Producto seleccionado: " + matchedProduct.getId() + " - " + matchedProduct.getName() + "\n"
                     + matchedProduct.getDescription() + "\n"
-                    + "Si deseas continuar, escribe 'contratar " + matchedProduct.getId() + "'.";
+                    + "Ahora usa el boton 'Contratar producto seleccionado' para iniciar la venta.";
         }
 
         if (m.contains("contratar")
@@ -333,11 +333,11 @@ public class ChatbotService {
 
         String suggestedProductId = normalizedRut == null ? null : getOrCreateChatState(normalizedRut).selectedProductId;
         if (suggestedProductId != null) {
-            return "No pude comprender tu consulta por completo. Si deseas continuar, escribe 'contratar " + suggestedProductId
-                    + "' o escribe 'productos' para revisar todas las opciones.";
+            return "No pude comprender tu consulta por completo. Tienes seleccionado " + suggestedProductId
+                    + ". Usa el boton 'Contratar producto seleccionado' o escribe 'productos' para revisar todas las opciones.";
         }
 
-        return "No pude comprender tu consulta por completo. Prueba con 'productos', con un id como 'prod-1' o con 'contratar <id>'.";
+        return "No pude comprender tu consulta por completo. Prueba con 'productos' o escribe un id como 'prod-1' para seleccionar un producto.";
     }
 
     private Product findProductByQuery(String query) {
