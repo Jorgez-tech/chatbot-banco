@@ -1,5 +1,6 @@
 package com.chatbot;
 
+import com.chatbot.model.Sale;
 import com.chatbot.repository.ProductRepository;
 import com.chatbot.repository.SaleRepository;
 import com.chatbot.repository.UserRepository;
@@ -14,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -88,7 +90,7 @@ class ChatbotServiceIntegrationTests {
     }
 
     @Test
-    void chatFlowContractsAndSignsEachSeedProduct() {
+    void businessFlowContractsAndSignsEachSeedProduct() {
         String[] productIds = {"prod-1", "prod-2", "prod-3"};
 
         long completedBefore = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
@@ -100,12 +102,14 @@ class ChatbotServiceIntegrationTests {
             String selectResponse = chatbotService.processMessage(productId, SEEDED_RUT_CANONICAL);
             assertTrue(selectResponse.toLowerCase().contains(productId));
 
-            String contractResponse = chatbotService.processMessage("contratar " + productId, SEEDED_RUT_CANONICAL);
-            assertTrue(contractResponse.contains("saleId:"));
-            assertTrue(contractResponse.contains("estado: PENDING"));
+            String guideResponse = chatbotService.processMessage("contratar " + productId, SEEDED_RUT_CANONICAL);
+            assertTrue(guideResponse.contains("Contratar producto seleccionado"));
 
-            String signResponse = chatbotService.processMessage("firmar Cliente QA", SEEDED_RUT_CANONICAL);
-            assertTrue(signResponse.contains("estado: COMPLETED"));
+            String saleId = chatbotService.startSale(SEEDED_RUT_CANONICAL, productId);
+            assertNotNull(saleId);
+
+            boolean signed = chatbotService.signSale(saleId, "Cliente QA");
+            assertTrue(signed);
         }
 
         long completedAfter = saleRepository.findByRut(SEEDED_RUT_CANONICAL)
@@ -114,5 +118,56 @@ class ChatbotServiceIntegrationTests {
                 .count();
 
         assertEquals(completedBefore + 3, completedAfter);
+    }
+
+    @Test
+    void processMessageReturnsGuidanceWhenMessageIsBlank() {
+        String response = chatbotService.processMessage("   ", SEEDED_RUT_CANONICAL);
+        assertTrue(response.contains("No recibi ningun mensaje"));
+        assertTrue(response.contains("productos"));
+    }
+
+    @Test
+    void contractIntentRecognizesContratacionKeyword() {
+        String response = chatbotService.processMessage("contratacion", SEEDED_RUT_CANONICAL);
+        assertTrue(response.contains("Para contratar") || response.contains("Contratar producto seleccionado") || response.contains("Ya tienes seleccionado"));
+    }
+
+    @Test
+    void contractIntentInChatDoesNotCreateSalesByItself() {
+        long salesBefore = saleRepository.findByRut(SEEDED_RUT_CANONICAL).size();
+
+        String response = chatbotService.processMessage("contratar prod-1", SEEDED_RUT_CANONICAL);
+
+        long salesAfter = saleRepository.findByRut(SEEDED_RUT_CANONICAL).size();
+        assertTrue(response.contains("Contratar producto seleccionado") || response.contains("Para contratar"));
+        assertEquals(salesBefore, salesAfter);
+    }
+
+    @Test
+    void singleCharacterInputDoesNotAutoSelectProduct() {
+        String response = chatbotService.processMessage("n", SEEDED_RUT_CANONICAL);
+        assertFalse(response.contains("Producto seleccionado:"));
+        assertTrue(response.contains("productos"));
+    }
+
+    @Test
+    void fallbackSuggestsSelectedProductWhenContextExists() {
+        chatbotService.processMessage("prod-3", SEEDED_RUT_CANONICAL);
+        String response = chatbotService.processMessage(".", SEEDED_RUT_CANONICAL);
+
+        assertTrue(response.contains("prod-3"));
+    }
+
+    @Test
+    void signSaleRejectsWhitespaceOnlySignatureAndKeepsSalePending() {
+        String saleId = chatbotService.startSale(SEEDED_RUT_CANONICAL, "prod-1");
+        assertNotNull(saleId);
+
+        boolean signed = chatbotService.signSale(saleId, "   ");
+        assertFalse(signed);
+
+        Sale sale = saleRepository.findById(saleId).orElseThrow();
+        assertEquals("PENDING", sale.getStatus());
     }
 }

@@ -298,6 +298,17 @@ body {
   color: #0b2b4a;
 }
 
+.typing-indicator {
+  font-style: italic;
+  color: #6b7c93;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .user-message {
   background: #004481;
   color: #fff;

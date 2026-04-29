@@ -34,19 +34,44 @@ let currentToken = null;
 let selectedProductId = null;
 let pendingSaleId = null;
 
+function apiErrorMessage(data, fallback) {
+  if (!data) return fallback;
+  if (data.detail) return `${data.message || fallback} (${data.detail})`;
+  return data.message || fallback;
+}
+
+async function requestJson(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (currentToken && !headers.Authorization && !headers.authorization) {
+    headers.Authorization = `Bearer ${currentToken}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+  return { response, data };
+}
+
 // ===== FORMATEO DE RUT =====
 function formatRUT(value) {
   // Remove all non-digit and 'k' characters
   value = value.replace(/[^\d kK]/g, '').toUpperCase();
-  
+
   // Keep only first 8 digits and 1 letter
   if (value.length > 9) {
     value = value.substring(0, 9);
   }
-  
+
   let formatted = '';
   let cleanValue = value.replace(/\D/g, '').slice(0, 8);
-  
+
   if (cleanValue.length === 0) {
     formatted = '';
   } else if (cleanValue.length <= 1) {
@@ -54,20 +79,20 @@ function formatRUT(value) {
   } else if (cleanValue.length <= 4) {
     formatted = cleanValue.slice(0, 1) + '.' + cleanValue.slice(1);
   } else if (cleanValue.length <= 7) {
-    formatted = cleanValue.slice(0, 1) + '.' + 
-                cleanValue.slice(1, 4) + '.' + 
-                cleanValue.slice(4);
+    formatted = cleanValue.slice(0, 1) + '.' +
+      cleanValue.slice(1, 4) + '.' +
+      cleanValue.slice(4);
   } else {
-    formatted = cleanValue.slice(0, 2) + '.' + 
-                cleanValue.slice(2, 5) + '.' + 
-                cleanValue.slice(5, 8);
+    formatted = cleanValue.slice(0, 2) + '.' +
+      cleanValue.slice(2, 5) + '.' +
+      cleanValue.slice(5, 8);
   }
-  
+
   // Add letter if present
   if (value.length > 8) {
     formatted += '-' + value[8];
   }
-  
+
   return formatted;
 }
 
@@ -92,7 +117,7 @@ function validatePassword(password) {
 registerPassword.addEventListener('input', (e) => {
   const pwd = e.target.value;
   const validation = validatePassword(pwd);
-  
+
   document.getElementById('req-length').className = validation.length ? 'requirement valid' : 'requirement invalid';
   document.getElementById('req-number').className = validation.number ? 'requirement valid' : 'requirement invalid';
   document.getElementById('req-uppercase').className = validation.uppercase ? 'requirement valid' : 'requirement invalid';
@@ -104,7 +129,7 @@ function switchTab(tab) {
   const registerForm = document.getElementById('register-form');
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
-  
+
   if (tab === 'login') {
     loginForm.classList.add('active');
     registerForm.classList.remove('active');
@@ -124,21 +149,19 @@ function switchTab(tab) {
 btnLogin.addEventListener('click', async () => {
   const rut = loginRut.value.trim();
   const password = loginPassword.value;
-  
+
   if (!rut || !password) {
     loginError.textContent = 'Por favor completa todos los campos';
     return;
   }
-  
+
   try {
-    const response = await fetch('/api/login', {
+    const { response, data } = await requestJson('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rut, password })
     });
-    
-    const data = await response.json();
-    
+
     if (response.ok && data.token) {
       currentToken = data.token;
       currentUser = rut;
@@ -146,7 +169,7 @@ btnLogin.addEventListener('click', async () => {
       showChatUI();
       appendMessage('bot', `¡Bienvenido ${rut}! ¿En qué puedo ayudarte?`);
     } else {
-      loginError.textContent = data.message || 'Error en la autenticación';
+      loginError.textContent = apiErrorMessage(data, 'Error en la autenticación');
     }
   } catch (error) {
     loginError.textContent = 'Error de conexión con el servidor';
@@ -160,27 +183,25 @@ btnRegister.addEventListener('click', async () => {
   const name = registerName.value.trim();
   const email = registerEmail.value.trim();
   const phone = registerPhone.value.trim();
-  
+
   if (!rut || !password || !name) {
     registerError.textContent = 'Por favor completa RUT, nombre y contraseña';
     return;
   }
-  
+
   const validation = validatePassword(password);
   if (!validation.length || !validation.number || !validation.uppercase) {
     registerError.textContent = 'La contraseña no cumple los requisitos';
     return;
   }
-  
+
   try {
-    const response = await fetch('/api/register', {
+    const { response, data } = await requestJson('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rut, password, name, email, phone })
     });
-    
-    const data = await response.json();
-    
+
     if (response.ok) {
       registerError.textContent = '';
       // Limpia formulario y cambia a login
@@ -194,7 +215,7 @@ btnRegister.addEventListener('click', async () => {
       switchTab('login');
       loginError.textContent = '✓ Registro exitoso. Ahora inicia sesión.';
     } else {
-      registerError.textContent = data.message || 'Error en el registro';
+      registerError.textContent = apiErrorMessage(data, 'Error en el registro');
     }
   } catch (error) {
     registerError.textContent = 'Error de conexión con el servidor';
@@ -230,18 +251,41 @@ function appendMessage(sender, text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// ===== INDICADOR DE ESCRITURA =====
+function showTyping() {
+  hideTyping();
+  const el = document.createElement('div');
+  el.className = 'message bot-message typing-indicator';
+  el.id = 'typing-indicator';
+  el.innerText = 'Escribiendo...';
+  chatMessages.appendChild(el);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
 async function sendMessageText(text) {
   appendMessage('user', text);
+  showTyping();
   try {
-    const response = await fetch('/api/chat', {
+    const { response, data } = await requestJson('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mensaje: text, rut_cliente: currentUser || null })
     });
-    const data = await response.json();
+
+    hideTyping();
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo procesar tu mensaje.'));
+      return;
+    }
     appendMessage('bot', data.respuesta);
     syncChatStateFromResponse(data.respuesta);
   } catch (error) {
+    hideTyping();
     appendMessage('bot', 'Error de conexión con el servidor.');
   }
 }
@@ -251,18 +295,11 @@ function syncChatStateFromResponse(responseText) {
     return;
   }
 
-  const productMatch = responseText.match(/\bprod-[1-9]\b/i);
-  if (productMatch) {
-    selectedProductId = productMatch[0].toLowerCase();
-  }
-
-  const saleMatch = responseText.match(/saleId:\s*([a-zA-Z0-9\-]+)/i);
-  if (saleMatch) {
-    pendingSaleId = saleMatch[1];
-  }
-
-  if (responseText.includes('estado: COMPLETED')) {
-    pendingSaleId = null;
+  if (/^Producto seleccionado:/i.test(responseText)) {
+    const productMatch = responseText.match(/\bprod-[1-9]\b/i);
+    if (productMatch) {
+      selectedProductId = productMatch[0].toLowerCase();
+    }
   }
 
   updateActionButtons();
@@ -300,19 +337,32 @@ function updateActionButtons() {
 sendBtn.addEventListener('click', () => {
   const text = userInput.value.trim();
   if (!text) return;
+
+  if (/^prod-[1-3]$/i.test(text)) {
+    selectedProductId = text.toLowerCase();
+    updateActionButtons();
+  }
+
   userInput.value = '';
   sendMessageText(text);
 });
 
-userInput.addEventListener('keypress', function(e) {
+userInput.addEventListener('keypress', function (e) {
   if (e.key === 'Enter') sendBtn.click();
 });
 
 productsBtn.addEventListener('click', async () => {
   appendMessage('user', 'Ver productos');
+  showTyping();
   try {
-    const res = await fetch('/api/products');
-    const products = await res.json();
+    const { response, data } = await requestJson('/api/products');
+    hideTyping();
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo obtener la lista de productos.'));
+      return;
+    }
+
+    const products = data || [];
     if (!products.length) appendMessage('bot', 'No hay productos disponibles.');
     else {
       let out = 'Productos disponibles:\n';
@@ -321,38 +371,99 @@ productsBtn.addEventListener('click', async () => {
       appendMessage('bot', 'Escribe el ID del producto (ej: prod-1) para seleccionarlo y luego usa el botón "Contratar producto seleccionado".');
     }
   } catch (err) {
+    hideTyping();
     appendMessage('bot', 'No se pudo obtener la lista de productos.');
   }
 });
 
-buyBtn.addEventListener('click', () => {
+buyBtn.addEventListener('click', async () => {
   if (!selectedProductId) {
     appendMessage('bot', 'Primero selecciona un producto escribiendo su ID (prod-1, prod-2, prod-3).');
     return;
   }
-  sendMessageText(`contratar ${selectedProductId}`);
+
+  appendMessage('user', `contratar ${selectedProductId}`);
+  showTyping();
+  try {
+    const { response, data } = await requestJson('/api/sale/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rut: currentUser, productId: selectedProductId })
+    });
+
+    hideTyping();
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No se pudo iniciar la venta.'));
+      return;
+    }
+
+    pendingSaleId = data.saleId || null;
+    updateActionButtons();
+    appendMessage('bot', `${data.message || 'Venta iniciada'}${pendingSaleId ? ` (ID de venta: ${pendingSaleId})` : ''}`);
+  } catch (error) {
+    hideTyping();
+    appendMessage('bot', 'Error de conexión con el servidor.');
+  }
 });
 
-signBtn.addEventListener('click', () => {
+signBtn.addEventListener('click', async () => {
   if (!pendingSaleId) {
     appendMessage('bot', 'No hay contrato pendiente por firmar. Primero inicia una contratación.');
     return;
   }
+
+  // Mostrar resumen del contrato antes de solicitar la firma
+  try {
+    const { response: saleResp, data: saleData } = await requestJson(`/api/sale/${pendingSaleId}?rut=${encodeURIComponent(currentUser)}`);
+    if (saleResp.ok && saleData) {
+      appendMessage('bot', `Contrato pendiente:\n- Producto: ${saleData.productId}\n- RUT: ${saleData.rut}\n- Estado: ${saleData.status}\nIngresa tu firma para confirmar.`);
+    }
+  } catch (_) {
+    // Si falla la consulta, se continua igualmente con la firma
+  }
+
   const signature = window.prompt('Ingresa tu firma digital (ejemplo: Nombre Apellido)');
   if (!signature || !signature.trim()) {
     appendMessage('bot', 'Firma cancelada.');
     return;
   }
-  sendMessageText(`firmar ${signature.trim()}`);
+
+  appendMessage('user', `firmar ${signature.trim()}`);
+  showTyping();
+  try {
+    const { response, data } = await requestJson('/api/sale/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saleId: pendingSaleId, signature: signature.trim() })
+    });
+
+    hideTyping();
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No fue posible aplicar la firma digital.'));
+      return;
+    }
+
+    pendingSaleId = null;
+    updateActionButtons();
+    appendMessage('bot', data.message || 'Firma digital aplicada.');
+    appendMessage('bot', 'estado: COMPLETED');
+  } catch (error) {
+    hideTyping();
+    appendMessage('bot', 'Error de conexión con el servidor.');
+  }
 });
 
 resetBtn.addEventListener('click', async () => {
   try {
-    await fetch('/api/reset', { method: 'POST' });
+    const { response, data } = await requestJson('/api/reset', { method: 'POST' });
+    if (!response.ok) {
+      appendMessage('bot', apiErrorMessage(data, 'No fue posible reiniciar los datos.'));
+      return;
+    }
     selectedProductId = null;
     pendingSaleId = null;
     updateActionButtons();
-    appendMessage('bot', 'Datos reiniciados en el servidor.');
+    appendMessage('bot', data.message || 'Datos reiniciados en el servidor.');
   } catch (err) {
     appendMessage('bot', 'No fue posible reiniciar los datos.');
   }

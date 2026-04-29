@@ -1,20 +1,25 @@
 # Manual Tecnico - Chatbot Banco
 
 ## 1. Alcance
-Backend academico en Spring Boot para un flujo bancario basico:
+
+Este backend academico en Spring Boot implementa un flujo bancario basico:
+
 - autenticacion,
 - consulta de productos,
 - inicio de venta,
 - firma digital de contrato,
 - consulta de ventas.
 
-Prioridad del proyecto: simple, estable y facil de revisar.
+La prioridad del proyecto es mantener una base simple, estable y facil de revisar.
 
 ## 2. Estructura del backend
-Base: `backend/chatbot`
+
+Directorio base: `backend/chatbot`
 
 - `src/main/java/com/chatbot/controller/ChatController.java`
   - API REST principal.
+- `src/main/java/com/chatbot/controller/ApiExceptionHandler.java`
+  - Manejo centralizado de errores de validacion y body invalido.
 - `src/main/java/com/chatbot/service/ChatbotService.java`
   - Logica de negocio del chatbot y ventas.
 - `src/main/java/com/chatbot/model/*`
@@ -27,13 +32,16 @@ Base: `backend/chatbot`
   - Frontend estatico (HTML/CSS/JS).
 
 ## 3. Stack
+
 - Java 21
 - Spring Boot 4.0.4
 - Spring Data JPA
+- Spring Validation
 - MySQL
 - Frontend estatico (sin frameworks)
 
 ## 4. Configuracion local
+
 Archivo: `src/main/resources/application.properties`
 
 - Puerto: `8081`
@@ -42,10 +50,12 @@ Archivo: `src/main/resources/application.properties`
 - Password local por defecto: `mysql`
 
 Notas:
+
 - `spring.sql.init.mode=always` inicializa esquema.
 - `spring.jpa.hibernate.ddl-auto=none` evita generar esquema automatico.
 
 ## 5. Modelo de datos
+
 Definido en `schema.sql`:
 
 - `users(rut, name, email, phone, password)`
@@ -53,10 +63,12 @@ Definido en `schema.sql`:
 - `sales(id, product_id, rut, status, signature, created_at)`
 
 Relacion clave:
+
 - `sales.product_id -> products.id`
 - `sales.rut -> users.rut`
 
 ## 6. Endpoints principales
+
 - `GET /api/faq`
 - `POST /api/register`
 - `POST /api/login`
@@ -69,15 +81,46 @@ Relacion clave:
 - `POST /api/reset`
 - `GET /api/health`
 
+Notas de contrato:
+
+- Se mantiene compatibilidad con el frontend actual.
+- En errores de validacion se responde `400` con mensaje claro para el usuario.
+
 ## 7. Flujo de venta y firma
+
 1. Cliente autenticado.
 2. Selecciona producto (`prod-1`, `prod-2`, `prod-3`).
 3. Inicia venta con `rut + productId`.
-4. Sistema genera `saleId` con estado `PENDING`.
+4. Sistema genera un identificador de venta (serializado como `saleId` via `@JsonProperty`) con estado `PENDING`.
 5. Cliente firma digitalmente (`saleId + signature`).
 6. Estado final: `COMPLETED`.
 
+Atajos de uso en chat:
+
+- Contratacion: escribir `contratar` para recibir guia hacia el boton de contratacion.
+- Firma: escribir `firmar` para recibir guia hacia el boton de firma.
+
+Indicadores UX:
+
+- El chat muestra un indicador `Escribiendo...` mientras espera respuesta del servidor.
+- Al firmar, el frontend consulta `/api/sale/{saleId}` y muestra un resumen del contrato (producto, RUT, estado) antes de solicitar la firma.
+
+### 7.1 Separacion de responsabilidades acordada
+
+- Frontend (`static/app.js`): validaciones UX y render de mensajes/estado.
+- Backend (`ChatbotService`): reglas de negocio (usuarios, productos, ventas, firma).
+- Endpoint `/api/chat`: conversacion y guia, sin ejecutar cambios de estado de venta.
+- Endpoints `/api/sale/start` y `/api/sale/sign`: unica via para crear/finalizar ventas.
+
+### 7.2 Seguridad basica de sesion (alcance academico)
+
+- Login devuelve token de sesion.
+- Frontend envia `Authorization: Bearer <token>` en requests autenticados.
+- `/api/sale/start` valida token y que el RUT del body corresponda al token.
+- `/api/sale/sign` valida token y propiedad de la venta antes de firmar.
+
 ## 8. Productos semilla minimos
+
 - `prod-1`: Credito de Consumo
 - `prod-2`: Cuenta Vista
 - `prod-3`: Tarjeta de Credito
@@ -85,11 +128,12 @@ Relacion clave:
 El servicio asegura que existan para cumplir el requisito academico de minimo 3 productos contratables.
 
 ## 9. Pruebas
+
 Ubicacion: `src/test/java/com/chatbot`
 
 - `ChatbotApplicationTests`: carga de contexto.
 - `ChatbotServiceIntegrationTests`: flujo de negocio, normalizacion de RUT y contratacion/firma por 3 productos.
-- `ChatControllerIntegrationTests`: contrato REST para inicio y firma de venta.
+- `ChatControllerIntegrationTests`: contrato REST para inicio/firma de venta y validaciones de entrada.
 
 Ejecucion en Windows:
 
@@ -98,6 +142,15 @@ Ejecucion en Windows:
 ```
 
 ## 10. Criterios para cambios
+
 - Cambios pequenos y enfocados.
 - No romper contratos API ni frontend.
 - Toda correccion funcional debe incluir prueba minima.
+- Preferir mensajes claros, formales y amigables para el usuario final.
+
+## 11. Convenciones de nomenclatura
+
+- **Codigo fuente** (clases, variables, metodos, campos JPA): en ingles.
+- **Mensajes al usuario** (respuestas de chat, errores, FAQs): en español.
+- **Claves JSON de la API** (`saleId`, `productId`, `rut`, `token`, etc.): en ingles (camelCase).
+- **Serializacion de `Sale.id`**: el campo se llama `id` en la entidad y la base de datos, pero se expone como `saleId` en toda la API REST mediante `@JsonProperty("saleId")`.

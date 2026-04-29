@@ -1,5 +1,6 @@
 package com.chatbot.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -14,6 +15,7 @@ public class Sale {
 
     @Id
     @Column(length = 100)
+    @JsonProperty("saleId")
     private String id;
 
     @Column(name = "product_id")
